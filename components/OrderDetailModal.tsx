@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, Variants } from 'framer-motion';
-import { X, Calendar, HardHat, Building, DollarSign, CheckCircle } from 'lucide-react';
+import { X, Calendar, HardHat, Building, DollarSign, CheckCircle, Truck } from 'lucide-react';
 import { RentalOrder, RentalStatus } from '../types';
 
 const OrderDetailModal: React.FC<{ order: RentalOrder; onClose: () => void }> = ({ order, onClose }) => {
@@ -60,7 +60,10 @@ const OrderDetailModal: React.FC<{ order: RentalOrder; onClose: () => void }> = 
                        <div className="space-y-4 text-sm">
                            <div className="flex items-center gap-3"><Building size={18} className="text-primary"/> <div><span className="font-semibold">Cliente:</span> {order.client}</div></div>
                            <div className="flex items-center gap-3"><HardHat size={18} className="text-primary"/> <div><span className="font-semibold">Equipamento:</span> {order.equipment}</div></div>
-                           <div className="flex items-center gap-3"><Calendar size={18} className="text-primary"/> <div><span className="font-semibold">Período:</span> {new Date(order.startDate).toLocaleDateString('pt-BR')} a {new Date(order.endDate).toLocaleDateString('pt-BR')}</div></div>
+                           <div className="flex items-center gap-3"><Calendar size={18} className="text-primary"/> <div><span className="font-semibold">Período:</span> {new Date(order.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} a {new Date(order.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}</div></div>
+                           {order.deliveryDate && (
+                                <div className="flex items-center gap-3"><Truck size={18} className="text-primary"/> <div><span className="font-semibold">Entrega Agendada:</span> {new Date(order.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR')}</div></div>
+                           )}
                            <div className="flex items-center gap-3"><DollarSign size={18} className="text-primary"/> <div><span className="font-semibold">Valor Total:</span> R$ {order.value.toLocaleString('pt-BR')}</div></div>
                        </div>
                    </div>

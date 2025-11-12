@@ -78,10 +78,10 @@ const initialQuoteData: Quote[] = [
 ];
 
 const otherStageOrdersData: RentalOrder[] = [
-    { id: 'LOC-001-DEMO', client: 'Construtora Alfa', equipment: 'Escavadeira CAT 320D', startDate: '2024-08-01', endDate: '2024-08-15', value: 15000, status: 'Ativo', statusHistory: [ { status: 'Proposta', date: '2024-07-10' }, { status: 'Aprovado', date: '2024-07-12' }, { status: 'Reservado', date: '2024-07-15' }, { status: 'Em Rota', date: '2024-08-01' }, { status: 'Ativo', date: '2024-08-01' }], createdDate: '2024-07-10', validUntil: '2024-07-25'},
-    { id: 'LOC-002-DEMO', client: 'Engenharia Beta', equipment: 'Betoneira CSM 400L', startDate: '2024-08-05', endDate: '2024-08-10', value: 2500, status: 'Reservado', statusHistory: [ { status: 'Proposta', date: '2024-07-20' }, { status: 'Aprovado', date: '2024-07-22' }, { status: 'Reservado', date: '2024-07-23' }], createdDate: '2024-07-20', validUntil: '2024-08-04'},
-    { id: 'LOC-005-DEMO', client: 'Construtora Alfa', equipment: 'Escavadeira Komatsu PC200', startDate: '2024-07-20', endDate: '2024-07-28', value: 9800, status: 'Pendente de Pagamento', statusHistory: [ { status: 'Proposta', date: '2024-07-01' }, { status: 'Aprovado', date: '2024-07-02' }, { status: 'Reservado', date: '2024-07-05' }, { status: 'Em Rota', date: '2024-07-20' }, { status: 'Ativo', date: '2024-07-20' }, { status: 'Concluído', date: '2024-07-28' }, { status: 'Pendente de Pagamento', date: '2024-07-29' } ], createdDate: '2024-07-01', validUntil: '2024-07-16'},
-    { id: 'LOC-006-DEMO', client: 'Engenharia Beta', equipment: 'Betoneira Menegotti 150L', startDate: '2024-08-12', endDate: '2024-08-18', value: 1800, status: 'Ativo', statusHistory: [ { status: 'Proposta', date: '2024-07-25' }, { status: 'Aprovado', date: '2024-07-28' }, { status: 'Reservado', date: '2024-08-01' }, { status: 'Em Rota', date: '2024-08-12' }, { status: 'Ativo', date: '2024-08-12' }], createdDate: '2024-07-25', validUntil: '2024-08-09' },
+    { id: 'LOC-001-DEMO', client: 'Construtora Alfa', equipment: 'Escavadeira CAT 320D', startDate: '2024-08-01', endDate: '2024-08-15', value: 15000, status: 'Ativo', statusHistory: [ { status: 'Proposta', date: '2024-07-10' }, { status: 'Aprovado', date: '2024-07-12' }, { status: 'Reservado', date: '2024-07-15' }, { status: 'Em Rota', date: '2024-08-01' }, { status: 'Ativo', date: '2024-08-01' }], createdDate: '2024-07-10', validUntil: '2024-07-25', deliveryDate: '2024-08-01' },
+    { id: 'LOC-002-DEMO', client: 'Engenharia Beta', equipment: 'Betoneira CSM 400L', startDate: '2024-08-05', endDate: '2024-08-10', value: 2500, status: 'Reservado', statusHistory: [ { status: 'Proposta', date: '2024-07-20' }, { status: 'Aprovado', date: '2024-07-22' }, { status: 'Reservado', date: '2024-07-23' }], createdDate: '2024-07-20', validUntil: '2024-08-04', deliveryDate: '2024-08-05' },
+    { id: 'LOC-005-DEMO', client: 'Construtora Alfa', equipment: 'Escavadeira Komatsu PC200', startDate: '2024-07-20', endDate: '2024-07-28', value: 9800, status: 'Pendente de Pagamento', statusHistory: [ { status: 'Proposta', date: '2024-07-01' }, { status: 'Aprovado', date: '2024-07-02' }, { status: 'Reservado', date: '2024-07-05' }, { status: 'Em Rota', date: '2024-07-20' }, { status: 'Ativo', date: '2024-07-20' }, { status: 'Concluído', date: '2024-07-28' }, { status: 'Pendente de Pagamento', date: '2024-07-29' } ], createdDate: '2024-07-01', validUntil: '2024-07-16', deliveryDate: '2024-07-20' },
+    { id: 'LOC-006-DEMO', client: 'Engenharia Beta', equipment: 'Betoneira Menegotti 150L', startDate: '2024-08-12', endDate: '2024-08-18', value: 1800, status: 'Ativo', statusHistory: [ { status: 'Proposta', date: '2024-07-25' }, { status: 'Aprovado', date: '2024-07-28' }, { status: 'Reservado', date: '2024-08-01' }, { status: 'Em Rota', date: '2024-08-12' }, { status: 'Ativo', date: '2024-08-12' }], createdDate: '2024-07-25', validUntil: '2024-08-09', deliveryDate: '2024-08-12' },
 ];
 
 const initialRentalOrdersData: RentalOrder[] = [
@@ -256,13 +256,13 @@ const App: React.FC = () => {
         setAddEditEquipmentModalOpen(true);
     };
     
-    const handleSaveEquipment = (equipmentData: Omit<Equipment, 'id'>) => {
+    const handleSaveEquipment = (equipmentData: Omit<Equipment, 'id'> | Equipment) => {
         if ('id' in equipmentData && equipmentData.id) { // Update
             setAllEquipment(prev => prev.map(eq => eq.id === (equipmentData as Equipment).id ? (equipmentData as Equipment) : eq));
         } else { // Create
             const newId = `EQP-${(allEquipment.length + 1).toString().padStart(3, '0')}`;
             const newEquipment: Equipment = {
-                ...equipmentData,
+                ...(equipmentData as Omit<Equipment, 'id'>),
                 id: newId,
                 status: 'Disponível', // Default status
             };

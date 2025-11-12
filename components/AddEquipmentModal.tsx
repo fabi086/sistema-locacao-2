@@ -5,7 +5,7 @@ import { Equipment, EquipmentCategory } from '../types';
 
 interface AddEquipmentModalProps {
     onClose: () => void;
-    onSave: (equipmentData: Omit<Equipment, 'id'>) => void;
+    onSave: (equipmentData: Omit<Equipment, 'id'> | Equipment) => void;
     equipmentToEdit?: Equipment | null;
 }
 
@@ -37,7 +37,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
             ? { ...equipmentToEdit, ...commonData } 
             : { ...commonData, status: 'Disponível' }; // Status default para novos
 
-        onSave(equipmentData as Omit<Equipment, 'id'>);
+        onSave(equipmentData);
     };
 
     const backdropVariants: Variants = {

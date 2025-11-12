@@ -1,6 +1,4 @@
 import React from 'react';
-// FIX: Import Variants type from framer-motion to fix type errors.
-import { motion, Variants } from 'framer-motion';
 import { HardHat, Calendar, Building, DollarSign, Truck } from 'lucide-react';
 import { RentalOrder } from '../types';
 import { useSortable } from '@dnd-kit/sortable';
@@ -60,8 +58,14 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDeliver
                 </div>
                  <div className="flex items-center gap-2">
                     <Calendar size={14} />
-                    <span>{new Date(order.startDate).toLocaleDateString('pt-BR')} - {new Date(order.endDate).toLocaleDateString('pt-BR')}</span>
+                    <span>{new Date(order.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(order.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
                 </div>
+                {order.deliveryDate && (
+                    <div className="flex items-center gap-2 font-semibold text-primary pt-1">
+                        <Truck size={14} />
+                        <span>Entrega: {new Date(order.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                    </div>
+                )}
             </div>
             
             {order.status === 'Aprovado' && (
