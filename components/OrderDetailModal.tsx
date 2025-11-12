@@ -24,6 +24,7 @@ const OrderDetailModal: React.FC<{ order: RentalOrder; onClose: () => void }> = 
         'Em Rota': 'bg-yellow-500',
         'Ativo': 'bg-green-500',
         'Concluído': 'bg-gray-600',
+        'Pendente de Pagamento': 'bg-orange-500',
     };
 
     return (

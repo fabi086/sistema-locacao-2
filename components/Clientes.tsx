@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2 } from 'lucide-react';
 // FIX: Import Variants type from framer-motion to fix type errors.
 import { motion, Variants } from 'framer-motion';
 import { Customer, CustomerStatus } from '../types';
@@ -18,9 +18,11 @@ const StatusBadge: React.FC<{ status: CustomerStatus }> = ({ status }) => (
 interface ClientesProps {
     clients: Customer[];
     onOpenAddClientModal: () => void;
+    onEdit: (client: Customer) => void;
+    onDelete: (client: Customer) => void;
 }
 
-const Clientes: React.FC<ClientesProps> = ({ clients, onOpenAddClientModal }) => {
+const Clientes: React.FC<ClientesProps> = ({ clients, onOpenAddClientModal, onEdit, onDelete }) => {
     const [searchTerm, setSearchTerm] = useState('');
 
     const filteredClients = useMemo(() => {
@@ -80,9 +82,10 @@ const Clientes: React.FC<ClientesProps> = ({ clients, onOpenAddClientModal }) =>
                     <thead className="bg-neutral-card-alt text-neutral-text-secondary font-semibold">
                         <tr>
                             <th className="p-4">Nome</th>
-                            <th className="p-4 hidden md:table-cell">Documento</th>
                             <th className="p-4 hidden sm:table-cell">Contato</th>
+                            <th className="p-4 hidden md:table-cell">Endereço</th>
                             <th className="p-4">Status</th>
+                            <th className="p-4 text-center">Ações</th>
                         </tr>
                     </thead>
                     <motion.tbody variants={containerVariants}>
@@ -93,12 +96,22 @@ const Clientes: React.FC<ClientesProps> = ({ clients, onOpenAddClientModal }) =>
                                 variants={itemVariants}
                             >
                                 <td className="p-4 font-semibold text-neutral-text-primary">{client.name}</td>
-                                <td className="p-4 text-neutral-text-secondary hidden md:table-cell">{client.document}</td>
                                 <td className="p-4 text-neutral-text-secondary hidden sm:table-cell">
                                     <div>{client.email}</div>
                                     <div>{client.phone}</div>
                                 </td>
+                                <td className="p-4 text-neutral-text-secondary hidden md:table-cell">{client.address}</td>
                                 <td className="p-4"><StatusBadge status={client.status} /></td>
+                                <td className="p-4">
+                                    <div className="flex items-center justify-center gap-2">
+                                        <button onClick={() => onEdit(client)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors">
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button onClick={() => onDelete(client)} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors">
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </td>
                             </motion.tr>
                         ))}
                     </motion.tbody>

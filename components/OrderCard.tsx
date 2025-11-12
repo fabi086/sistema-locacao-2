@@ -3,19 +3,32 @@ import React from 'react';
 import { motion, Variants } from 'framer-motion';
 import { HardHat, Calendar, Building, DollarSign, Truck } from 'lucide-react';
 import { RentalOrder } from '../types';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface OrderCardProps {
     order: RentalOrder;
     onClick: () => void;
     onScheduleDelivery: (orderId: string) => void;
+    isDragging: boolean;
 }
 
-const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDelivery }) => {
-    // FIX: Explicitly type variants with Variants to fix type error.
-    const cardVariants: Variants = {
-        hidden: { y: 20, opacity: 0 },
-        visible: { y: 0, opacity: 1, transition: { duration: 0.3, ease: 'easeOut' } }
+const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDelivery, isDragging }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({ id: order.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        boxShadow: isDragging ? '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)' : '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
     };
+
 
     const handleScheduleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -23,14 +36,13 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDeliver
     };
 
     return (
-        <motion.div
-            layout
-            variants={cardVariants}
-            initial="hidden"
-            animate="visible"
-            exit="hidden"
+        <div
+            ref={setNodeRef}
+            style={style}
+            {...attributes}
+            {...listeners}
             onClick={onClick}
-            className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-primary cursor-pointer transition-all"
+            className="bg-white p-4 rounded-lg border border-gray-200 hover:shadow-md hover:border-primary cursor-pointer transition-all touch-none"
         >
             <div className="flex justify-between items-start">
                  <p className="font-bold text-neutral-text-primary text-sm">{order.id}</p>
@@ -63,7 +75,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDeliver
                     </button>
                 </div>
             )}
-        </motion.div>
+        </div>
     );
 };
 

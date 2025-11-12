@@ -54,7 +54,7 @@ export interface Equipment {
     maintenanceHistory?: MaintenanceRecord[];
 }
 
-export type RentalStatus = 'Proposta' | 'Aprovado' | 'Reservado' | 'Em Rota' | 'Ativo' | 'Concluído';
+export type RentalStatus = 'Proposta' | 'Aprovado' | 'Reservado' | 'Em Rota' | 'Ativo' | 'Concluído' | 'Pendente de Pagamento';
 
 export interface StatusHistory {
     status: RentalStatus;
@@ -92,6 +92,7 @@ export interface Customer {
     document: string; // CNPJ ou CPF
     email: string;
     phone: string;
+    address?: string;
     status: CustomerStatus;
 }
 

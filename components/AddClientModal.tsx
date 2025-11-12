@@ -1,19 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 // FIX: Import Variants type from framer-motion to fix type errors.
 import { motion, Variants } from 'framer-motion';
-import { X, Building, FileText, Mail, Phone } from 'lucide-react';
+import { X, Building, FileText, Mail, Phone, MapPin } from 'lucide-react';
 import { Customer } from '../types';
 
 interface AddClientModalProps {
     onClose: () => void;
-    onSave: (clientData: Omit<Customer, 'id' | 'status'>) => void;
+    onSave: (clientData: Omit<Customer, 'id' | 'status'> | Customer) => void;
+    clientToEdit?: Customer | null;
 }
 
-const AddClientModal: React.FC<AddClientModalProps> = ({ onClose, onSave }) => {
+const AddClientModal: React.FC<AddClientModalProps> = ({ onClose, onSave, clientToEdit }) => {
     const [name, setName] = useState('');
     const [document, setDocument] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
+    const [address, setAddress] = useState('');
+    const isEditing = !!clientToEdit;
+
+    useEffect(() => {
+        if (isEditing) {
+            setName(clientToEdit.name);
+            setDocument(clientToEdit.document);
+            setEmail(clientToEdit.email);
+            setPhone(clientToEdit.phone);
+            setAddress(clientToEdit.address || '');
+        } else {
+            setName('');
+            setDocument('');
+            setEmail('');
+            setPhone('');
+            setAddress('');
+        }
+    }, [clientToEdit, isEditing]);
 
     const handleSubmit = () => {
         if (!name || !document) {
@@ -21,7 +40,13 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ onClose, onSave }) => {
             alert('Nome e Documento são obrigatórios.');
             return;
         }
-        onSave({ name, document, email, phone });
+        
+        const commonData = { name, document, email, phone, address };
+        const clientData = isEditing
+            ? { ...clientToEdit, ...commonData }
+            : commonData;
+
+        onSave(clientData as Omit<Customer, 'id' | 'status'> | Customer);
     };
 
     // FIX: Explicitly type variants with Variants to fix type error.
@@ -54,7 +79,7 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ onClose, onSave }) => {
                 onClick={(e) => e.stopPropagation()}
             >
                 <header className="p-6 bg-neutral-card border-b border-neutral-card-alt flex justify-between items-center">
-                    <h2 className="text-xl font-bold text-neutral-text-primary">Adicionar Novo Cliente</h2>
+                    <h2 className="text-xl font-bold text-neutral-text-primary">{isEditing ? 'Editar Cliente' : 'Adicionar Novo Cliente'}</h2>
                     <button onClick={onClose} className="p-2 rounded-full hover:bg-neutral-card-alt text-neutral-text-secondary transition-colors" aria-label="Fechar modal">
                         <X size={20} />
                     </button>
@@ -72,6 +97,13 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ onClose, onSave }) => {
                          <div className="relative">
                             <FileText size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
                             <input type="text" id="client-document" placeholder="00.000.000/0001-00" value={document} onChange={e => setDocument(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white" />
+                        </div>
+                    </div>
+                    <div>
+                        <label htmlFor="client-address" className="block text-sm font-semibold text-neutral-text-primary mb-2">Endereço</label>
+                         <div className="relative">
+                            <MapPin size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
+                            <input type="text" id="client-address" placeholder="Ex: Rua das Flores, 123, São Paulo, SP" value={address} onChange={e => setAddress(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white" />
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -96,7 +128,7 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ onClose, onSave }) => {
                         Cancelar
                     </button>
                     <button onClick={handleSubmit} className="px-5 py-2.5 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-lg shadow-sm transition-colors">
-                        Salvar Cliente
+                        {isEditing ? 'Salvar Alterações' : 'Salvar Cliente'}
                     </button>
                 </footer>
             </motion.div>
