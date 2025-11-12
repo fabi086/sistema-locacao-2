@@ -5,8 +5,10 @@ import PlaceholderPage from './components/PlaceholderPage';
 import Equipamentos from './components/Equipamentos';
 import QuoteModal from './components/QuoteModal';
 import Locacao from './components/Locacao';
-import Orcamentos from './components/Orcamentos'; // Importa o novo componente
-import { Equipment } from './types';
+import Orcamentos from './components/Orcamentos';
+import Clientes from './components/Clientes'; // Importa o novo componente
+import AddClientModal from './components/AddClientModal'; // Importa o modal de cliente
+import { Equipment, Customer } from './types';
 import { Truck, Wrench, FileText, Users, Building, Calendar, DollarSign, Settings, BarChart2, HardHat, LogOut, ChevronLeft, LayoutDashboard, FilePlus2 } from 'lucide-react';
 
 const navItems = [
@@ -22,6 +24,13 @@ const navItems = [
 ];
 
 type Page = typeof navItems[number]['label'];
+
+const customerData: Customer[] = [
+    { id: 'CLI-001', name: 'Construtora Alfa', document: '12.345.678/0001-99', email: 'contato@alfa.com', phone: '(11) 98765-4321', status: 'Ativo' },
+    { id: 'CLI-002', name: 'Engenharia Beta', document: '98.765.432/0001-11', email: 'financeiro@beta.eng.br', phone: '(21) 91234-5678', status: 'Ativo' },
+    { id: 'CLI-003', name: 'Obras Gamma', document: '45.678.912/0001-33', email: 'compras@gamma.com.br', phone: '(31) 95678-1234', status: 'Inativo' },
+];
+
 
 const Sidebar: React.FC<{ activePage: Page; setActivePage: (page: Page) => void }> = ({ activePage, setActivePage }) => {
     return (
@@ -68,9 +77,11 @@ const Sidebar: React.FC<{ activePage: Page; setActivePage: (page: Page) => void 
 
 
 const App: React.FC = () => {
-    const [activePage, setActivePage] = useState<Page>('Orçamentos');
+    const [activePage, setActivePage] = useState<Page>('Clientes');
     const [isQuoteModalOpen, setQuoteModalOpen] = useState(false);
     const [equipmentForQuote, setEquipmentForQuote] = useState<Equipment | null>(null);
+    const [isAddClientModalOpen, setAddClientModalOpen] = useState(false);
+    const [clients, setClients] = useState<Customer[]>(customerData);
 
     const handleOpenQuoteModal = (equipment: Equipment | null = null) => {
         setEquipmentForQuote(equipment);
@@ -79,7 +90,18 @@ const App: React.FC = () => {
 
     const handleCloseQuoteModal = () => {
         setQuoteModalOpen(false);
-        setEquipmentForQuote(null); // Limpa o equipamento ao fechar
+        setEquipmentForQuote(null);
+    };
+
+    const handleSaveClient = (newClient: Omit<Customer, 'id' | 'status'>) => {
+        const newId = `CLI-${(clients.length + 1).toString().padStart(3, '0')}`;
+        const clientToAdd: Customer = {
+            ...newClient,
+            id: newId,
+            status: 'Ativo',
+        };
+        setClients(prevClients => [clientToAdd, ...prevClients]);
+        setAddClientModalOpen(false);
     };
 
 
@@ -93,6 +115,8 @@ const App: React.FC = () => {
                 return <Locacao />;
             case 'Orçamentos':
                 return <Orcamentos onOpenQuoteModal={handleOpenQuoteModal} />;
+            case 'Clientes':
+                return <Clientes clients={clients} onOpenAddClientModal={() => setAddClientModalOpen(true)} />;
             default:
                 return <PlaceholderPage title={activePage} />;
         }
@@ -105,6 +129,9 @@ const App: React.FC = () => {
                 {renderContent()}
                 <AnimatePresence>
                     {isQuoteModalOpen && <QuoteModal onClose={handleCloseQuoteModal} equipment={equipmentForQuote} />}
+                </AnimatePresence>
+                 <AnimatePresence>
+                    {isAddClientModalOpen && <AddClientModal onClose={() => setAddClientModalOpen(false)} onSave={handleSaveClient} />}
                 </AnimatePresence>
             </main>
         </div>

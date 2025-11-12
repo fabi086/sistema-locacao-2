@@ -83,3 +83,14 @@ export interface Quote {
     value: number;
     status: QuoteStatus;
 }
+
+export type CustomerStatus = 'Ativo' | 'Inativo';
+
+export interface Customer {
+    id: string;
+    name: string;
+    document: string; // CNPJ ou CPF
+    email: string;
+    phone: string;
+    status: CustomerStatus;
+}
