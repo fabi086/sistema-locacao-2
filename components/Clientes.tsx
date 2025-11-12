@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Search, Edit2, Trash2 } from 'lucide-react';
-// FIX: Import Variants type from framer-motion to fix type errors.
 import { motion, Variants } from 'framer-motion';
 import { Customer, CustomerStatus } from '../types';
 
@@ -34,13 +33,11 @@ const Clientes: React.FC<ClientesProps> = ({ clients, onOpenAddClientModal, onEd
         });
     }, [searchTerm, clients]);
 
-    // FIX: Explicitly type variants with Variants to fix type error.
     const containerVariants: Variants = {
         hidden: { opacity: 0 },
         visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
     };
 
-    // FIX: Explicitly type variants with Variants to fix type error.
     const itemVariants: Variants = {
         hidden: { y: 20, opacity: 0 },
         visible: { y: 0, opacity: 1, transition: { duration: 0.3, ease: 'easeOut' } }

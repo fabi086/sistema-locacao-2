@@ -9,7 +9,7 @@ import { CSS } from '@dnd-kit/utilities';
 interface OrderCardProps {
     order: RentalOrder;
     onClick: () => void;
-    onScheduleDelivery: (orderId: string) => void;
+    onScheduleDelivery: () => void;
     isDragging: boolean;
 }
 
@@ -32,7 +32,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDeliver
 
     const handleScheduleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        onScheduleDelivery(order.id);
+        onScheduleDelivery();
     };
 
     return (

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-// FIX: Import Variants type from framer-motion to fix type errors.
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { X, Calendar, Wrench, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Equipment, RentalHistoryItem, MaintenanceRecord } from '../types';
@@ -116,13 +115,12 @@ const EquipmentDetailDrawer: React.FC<EquipmentDetailDrawerProps> = ({ equipment
         setActiveTab('Disponibilidade');
     }, [equipment]);
 
-    const backdropVariants = {
+    const backdropVariants: Variants = {
         hidden: { opacity: 0 },
         visible: { opacity: 1, transition: { duration: 0.3 } },
         exit: { opacity: 0, transition: { duration: 0.3, delay: 0.1 } },
     };
 
-    // FIX: Explicitly type variants with Variants to fix type error.
     const drawerVariants: Variants = {
         hidden: { x: '100%' },
         visible: { x: 0, transition: { duration: 0.4, ease: [0.2, 0.8, 0.2, 1] } },

@@ -1,5 +1,4 @@
 import React from 'react';
-// FIX: Import Variants type from framer-motion to fix type errors.
 import { motion, Variants } from 'framer-motion';
 import { X, Printer, HardHat } from 'lucide-react';
 import { Quote } from '../types';
@@ -18,12 +17,12 @@ const QuotePrintModal: React.FC<{ quote: Quote; onClose: () => void }> = ({ quot
         }
     };
     
-    const backdropVariants = {
+    const backdropVariants: Variants = {
         hidden: { opacity: 0 },
         visible: { opacity: 1 },
+        exit: { opacity: 0 },
     };
 
-    // FIX: Explicitly type variants with Variants to fix type error.
     const modalVariants: Variants = {
         hidden: { opacity: 0, scale: 0.95 },
         visible: { opacity: 1, scale: 1, transition: { duration: 0.3, ease: 'easeOut' } },
@@ -43,7 +42,7 @@ const QuotePrintModal: React.FC<{ quote: Quote; onClose: () => void }> = ({ quot
             variants={backdropVariants}
             initial="hidden"
             animate="visible"
-            exit="hidden"
+            exit="exit"
             onClick={onClose}
         >
             <motion.div

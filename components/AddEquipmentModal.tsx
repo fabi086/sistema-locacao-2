@@ -40,9 +40,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         onSave(equipmentData as Omit<Equipment, 'id'>);
     };
 
-    const backdropVariants = {
+    const backdropVariants: Variants = {
         hidden: { opacity: 0 },
         visible: { opacity: 1 },
+        exit: { opacity: 0 },
     };
 
     const modalVariants: Variants = {
@@ -59,7 +60,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
             variants={backdropVariants}
             initial="hidden"
             animate="visible"
-            exit="hidden"
+            exit="exit"
             onClick={onClose}
             aria-modal="true"
             role="dialog"

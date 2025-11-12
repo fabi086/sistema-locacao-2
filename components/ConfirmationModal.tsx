@@ -7,6 +7,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, onClose, 
     const backdropVariants: Variants = {
         hidden: { opacity: 0 },
         visible: { opacity: 1 },
+        exit: { opacity: 0 },
     };
 
     const modalVariants: Variants = {

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// FIX: Import Variants type from framer-motion to fix type errors.
 import { motion, Variants } from 'framer-motion';
 import { X, Building, FileText, Mail, Phone, MapPin } from 'lucide-react';
 import { Customer } from '../types';
@@ -49,13 +48,12 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ onClose, onSave, client
         onSave(clientData as Omit<Customer, 'id' | 'status'> | Customer);
     };
 
-    // FIX: Explicitly type variants with Variants to fix type error.
     const backdropVariants: Variants = {
         hidden: { opacity: 0 },
         visible: { opacity: 1 },
+        exit: { opacity: 0 },
     };
 
-    // FIX: Explicitly type variants with Variants to fix type error.
     const modalVariants: Variants = {
         hidden: { opacity: 0, y: 50, scale: 0.95 },
         visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.3, ease: 'easeOut' } },
@@ -68,7 +66,7 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ onClose, onSave, client
             variants={backdropVariants}
             initial="hidden"
             animate="visible"
-            exit="hidden"
+            exit="exit"
             onClick={onClose}
             aria-modal="true"
             role="dialog"

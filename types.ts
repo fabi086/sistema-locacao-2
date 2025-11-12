@@ -52,6 +52,11 @@ export interface Equipment {
     location: string;
     rentalHistory?: RentalHistoryItem[];
     maintenanceHistory?: MaintenanceRecord[];
+    pricing?: {
+        daily: number;
+        weekly: number;
+        biweekly: number; // Quinzenal
+    };
 }
 
 export type RentalStatus = 'Proposta' | 'Aprovado' | 'Reservado' | 'Em Rota' | 'Ativo' | 'Concluído' | 'Pendente de Pagamento';
@@ -70,6 +75,9 @@ export interface RentalOrder {
     value: number;
     status: RentalStatus;
     statusHistory: StatusHistory[];
+    createdDate: string;
+    validUntil: string;
+    deliveryDate?: string;
 }
 
 export type QuoteStatus = 'Pendente' | 'Aprovado' | 'Recusado';
@@ -78,6 +86,8 @@ export interface Quote {
     id: string;
     client: string;
     equipment: string;
+    startDate: string;
+    endDate: string;
     createdDate: string;
     validUntil: string;
     value: number;

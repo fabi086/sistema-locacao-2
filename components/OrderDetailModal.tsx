@@ -1,16 +1,15 @@
 import React from 'react';
-// FIX: Import Variants type from framer-motion to fix type errors.
 import { motion, Variants } from 'framer-motion';
 import { X, Calendar, HardHat, Building, DollarSign, CheckCircle } from 'lucide-react';
 import { RentalOrder, RentalStatus } from '../types';
 
 const OrderDetailModal: React.FC<{ order: RentalOrder; onClose: () => void }> = ({ order, onClose }) => {
-    const backdropVariants = {
+    const backdropVariants: Variants = {
         hidden: { opacity: 0 },
         visible: { opacity: 1 },
+        exit: { opacity: 0 },
     };
 
-    // FIX: Explicitly type variants with Variants to fix type error.
     const modalVariants: Variants = {
         hidden: { opacity: 0, y: 50, scale: 0.95 },
         visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.3, ease: 'easeOut' } },
@@ -33,7 +32,7 @@ const OrderDetailModal: React.FC<{ order: RentalOrder; onClose: () => void }> = 
             variants={backdropVariants}
             initial="hidden"
             animate="visible"
-            exit="hidden"
+            exit="exit"
             onClick={onClose}
             aria-modal="true"
             role="dialog"

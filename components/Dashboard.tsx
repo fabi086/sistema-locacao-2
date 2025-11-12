@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DollarSign, Percent, HardHat, Wrench, Plus, ChevronDown } from 'lucide-react';
-// FIX: Import Variants type from framer-motion to fix type errors.
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import KpiCard from './KpiCard';
 import RevenueChart from './RevenueChart';
@@ -98,7 +97,7 @@ const Dashboard: React.FC<{ onOpenQuoteModal: (equipment?: Equipment | null) => 
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const containerVariants = {
+    const containerVariants: Variants = {
         hidden: { opacity: 0 },
         visible: {
             opacity: 1,
@@ -108,7 +107,6 @@ const Dashboard: React.FC<{ onOpenQuoteModal: (equipment?: Equipment | null) => 
         }
     };
 
-    // FIX: Explicitly type variants with Variants to fix type error.
     const dropdownVariants: Variants = {
         hidden: { opacity: 0, scale: 0.95, y: -10 },
         visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' } },

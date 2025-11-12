@@ -1,10 +1,8 @@
 import React from 'react';
-// FIX: Import Variants type from framer-motion to fix type errors.
 import { motion, Variants } from 'framer-motion';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import type { Kpi } from '../types';
 
-// FIX: Explicitly type variants with Variants to fix type error.
 const cardVariants: Variants = {
     hidden: { y: 20, opacity: 0, scale: 0.98 },
     visible: { 

@@ -1,16 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Search, Printer } from 'lucide-react';
-// FIX: Import Variants type from framer-motion to fix type errors.
+import { Plus, Search, Printer, Edit2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { Quote, QuoteStatus, Equipment } from '../types';
 import QuotePrintModal from './QuotePrintModal';
-
-const quoteData: Quote[] = [
-    { id: 'ORC-001', client: 'Construtora Alfa', equipment: 'Escavadeira CAT 320D', createdDate: '2024-07-28', validUntil: '2024-08-12', value: 15000, status: 'Aprovado' },
-    { id: 'ORC-002', client: 'Engenharia Beta', equipment: 'Betoneira CSM 400L', createdDate: '2024-07-25', validUntil: '2024-08-09', value: 2500, status: 'Pendente' },
-    { id: 'ORC-003', client: 'Obras Gamma', equipment: 'Guindaste Liebherr LTM 1050', createdDate: '2024-07-22', validUntil: '2024-08-06', value: 45000, status: 'Recusado' },
-    { id: 'ORC-004', client: 'Projetos Delta', equipment: 'Andaimes Tubulares (Lote 20)', createdDate: '2024-07-29', validUntil: '2024-08-13', value: 7500, status: 'Pendente' },
-];
 
 const statusColors: Record<QuoteStatus, string> = {
     'Aprovado': 'bg-accent-success/10 text-accent-success',
@@ -18,19 +10,21 @@ const statusColors: Record<QuoteStatus, string> = {
     'Recusado': 'bg-accent-danger/10 text-accent-danger',
 };
 
-const StatusBadge: React.FC<{ status: QuoteStatus }> = ({ status }) => (
-    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${statusColors[status]}`}>
-        {status}
-    </span>
-);
+interface OrcamentosProps {
+    quotes: Quote[];
+    onOpenQuoteModal: (equipment?: Equipment | null) => void;
+    onEdit: (quote: Quote) => void;
+    onDelete: (quote: Quote) => void;
+    onUpdateStatus: (quoteId: string, newStatus: QuoteStatus) => void;
+}
 
-const Orcamentos: React.FC<{ onOpenQuoteModal: (equipment?: Equipment | null) => void }> = ({ onOpenQuoteModal }) => {
+const Orcamentos: React.FC<OrcamentosProps> = ({ quotes, onOpenQuoteModal, onEdit, onDelete, onUpdateStatus }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<QuoteStatus | 'Todos'>('Todos');
     const [quoteToPrint, setQuoteToPrint] = useState<Quote | null>(null);
 
     const filteredQuotes = useMemo(() => {
-        return quoteData.filter(quote => {
+        return quotes.filter(quote => {
             const searchMatch = searchTerm.toLowerCase() === '' ||
                 quote.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 quote.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -40,14 +34,13 @@ const Orcamentos: React.FC<{ onOpenQuoteModal: (equipment?: Equipment | null) =>
 
             return searchMatch && statusMatch;
         });
-    }, [searchTerm, statusFilter]);
+    }, [searchTerm, statusFilter, quotes]);
     
-    const containerVariants = {
+    const containerVariants: Variants = {
         hidden: { opacity: 0 },
         visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
     };
 
-    // FIX: Explicitly type variants with Variants to fix type error.
     const itemVariants: Variants = {
         hidden: { y: 20, opacity: 0 },
         visible: { y: 0, opacity: 1, transition: { duration: 0.3, ease: 'easeOut' } }
@@ -121,11 +114,36 @@ const Orcamentos: React.FC<{ onOpenQuoteModal: (equipment?: Equipment | null) =>
                                     <td className="p-4 text-neutral-text-primary font-medium">{quote.client}</td>
                                     <td className="p-4 text-neutral-text-secondary hidden md:table-cell">{new Date(quote.createdDate + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
                                     <td className="p-4 text-neutral-text-secondary hidden sm:table-cell font-semibold">R$ {quote.value.toLocaleString('pt-BR')}</td>
-                                    <td className="p-4"><StatusBadge status={quote.status} /></td>
+                                    <td className="p-4">
+                                        <div className="relative inline-block">
+                                            <select
+                                                value={quote.status}
+                                                onChange={(e) => onUpdateStatus(quote.id, e.target.value as QuoteStatus)}
+                                                onClick={(e) => e.stopPropagation()} // Impede que outros eventos de clique na linha sejam acionados
+                                                className={`pl-2.5 pr-8 py-1 text-xs font-semibold rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary border-none transition-colors ${statusColors[quote.status]}`}
+                                                aria-label={`Mudar status do orçamento ${quote.id}`}
+                                            >
+                                                <option value="Pendente">Pendente</option>
+                                                <option value="Aprovado">Aprovado</option>
+                                                <option value="Recusado">Recusado</option>
+                                            </select>
+                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-current">
+                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                                            </div>
+                                        </div>
+                                    </td>
                                     <td className="p-4 text-center">
-                                        <button onClick={() => setQuoteToPrint(quote)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors">
-                                            <Printer size={18} />
-                                        </button>
+                                        <div className="flex items-center justify-center gap-2">
+                                            <button onClick={() => onEdit(quote)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors" aria-label={`Editar orçamento ${quote.id}`}>
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button onClick={() => setQuoteToPrint(quote)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors" aria-label={`Imprimir orçamento ${quote.id}`}>
+                                                <Printer size={18} />
+                                            </button>
+                                            <button onClick={() => onDelete(quote)} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors" aria-label={`Excluir orçamento ${quote.id}`}>
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
                                     </td>
                                 </motion.tr>
                             ))}

@@ -12,19 +12,20 @@ import Agenda from './components/Agenda';
 import Manutencao from './components/Manutencao';
 import Usuarios from './components/Usuarios';
 import AddClientModal from './components/AddClientModal';
-import { Equipment, Customer, RentalHistoryItem, MaintenanceRecord, User } from './types';
+import { Equipment, Customer, RentalHistoryItem, MaintenanceRecord, User, Quote, QuoteStatus, RentalOrder, RentalStatus } from './types';
 import { Truck, Wrench, FileText, Users, Building, Calendar, Settings, HardHat, LogOut, ChevronLeft, LayoutDashboard, FilePlus2 } from 'lucide-react';
 import AddEquipmentModal from './components/AddEquipmentModal';
 import ConfirmationModal from './components/ConfirmationModal';
 import Configuracoes from './components/Configuracoes';
 import AddUserModal from './components/AddUserModal';
+import PriceTableModal from './components/PriceTableModal';
+import ScheduleDeliveryModal from './components/ScheduleDeliveryModal';
 
 const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard' },
     { icon: HardHat, label: 'Equipamentos' },
     { icon: Truck, label: 'Locação' },
     { icon: FileText, label: 'Contratos' },
-    { icon: FilePlus2, label: 'Orçamentos' },
     { icon: Building, label: 'Clientes' },
     { icon: Calendar, label: 'Agenda' },
     { icon: Wrench, label: 'Manutenção' },
@@ -52,12 +53,12 @@ const maintenanceHistoryData: MaintenanceRecord[] = [
 ];
 
 const initialEquipmentData: Equipment[] = [
-    { id: 'EQP-001', name: 'Escavadeira CAT 320D', category: 'Escavadeiras', serialNumber: 'CAT320D-12345', status: 'Disponível', location: 'Pátio A', rentalHistory: rentalHistoryData, maintenanceHistory: maintenanceHistoryData },
-    { id: 'EQP-002', name: 'Betoneira CSM 400L', category: 'Betoneiras', serialNumber: 'CSM400-67890', status: 'Em Uso', location: 'Obra Central' },
-    { id: 'EQP-003', name: 'Guindaste Liebherr LTM 1050', category: 'Guindastes', serialNumber: 'LTM1050-11223', status: 'Manutenção', location: 'Oficina' },
-    { id: 'EQP-004', name: 'Andaimes Tubulares (Lote 20)', category: 'Andaimes', serialNumber: 'AND-L20-33445', status: 'Disponível', location: 'Pátio B' },
-    { id: 'EQP-005', name: 'Escavadeira Komatsu PC200', category: 'Escavadeiras', serialNumber: 'KPC200-54321', status: 'Disponível', location: 'Pátio A', rentalHistory: [{id: 'RENT-010', client: 'Projetos Delta', startDate: '2024-07-01', endDate: '2024-07-08'}] },
-    { id: 'EQP-006', name: 'Betoneira Menegotti 150L', category: 'Betoneiras', serialNumber: 'MEN150-09876', status: 'Manutenção', location: 'Oficina', maintenanceHistory: [{ id: 'MAINT-005', type: 'Preventiva', date: '2024-07-22', description: 'Revisão geral', cost: 1200.00 }] },
+    { id: 'EQP-001', name: 'Escavadeira CAT 320D', category: 'Escavadeiras', serialNumber: 'CAT320D-12345', status: 'Disponível', location: 'Pátio A', rentalHistory: rentalHistoryData, maintenanceHistory: maintenanceHistoryData, pricing: { daily: 1200, weekly: 7000, biweekly: 13000 } },
+    { id: 'EQP-002', name: 'Betoneira CSM 400L', category: 'Betoneiras', serialNumber: 'CSM400-67890', status: 'Em Uso', location: 'Obra Central', pricing: { daily: 150, weekly: 900, biweekly: 1600 } },
+    { id: 'EQP-003', name: 'Guindaste Liebherr LTM 1050', category: 'Guindastes', serialNumber: 'LTM1050-11223', status: 'Manutenção', location: 'Oficina', pricing: { daily: 2500, weekly: 15000, biweekly: 28000 } },
+    { id: 'EQP-004', name: 'Andaimes Tubulares (Lote 20)', category: 'Andaimes', serialNumber: 'AND-L20-33445', status: 'Disponível', location: 'Pátio B', pricing: { daily: 50, weekly: 300, biweekly: 550 } },
+    { id: 'EQP-005', name: 'Escavadeira Komatsu PC200', category: 'Escavadeiras', serialNumber: 'KPC200-54321', status: 'Disponível', location: 'Pátio A', rentalHistory: [{id: 'RENT-010', client: 'Projetos Delta', startDate: '2024-07-01', endDate: '2024-07-08'}], pricing: { daily: 1150, weekly: 6800, biweekly: 12500 } },
+    { id: 'EQP-006', name: 'Betoneira Menegotti 150L', category: 'Betoneiras', serialNumber: 'MEN150-09876', status: 'Manutenção', location: 'Oficina', maintenanceHistory: [{ id: 'MAINT-005', type: 'Preventiva', date: '2024-07-22', description: 'Revisão geral', cost: 1200.00 }], pricing: { daily: 100, weekly: 600, biweekly: 1100 } },
 ];
 
 const userData: User[] = [
@@ -67,6 +68,31 @@ const userData: User[] = [
     { id: 'USR-004', name: 'Carlos Pereira', email: 'carlos.p@constructflow.com', role: 'Logística', status: 'Inativo', lastLogin: '2024-06-15' },
     { id: 'USR-005', name: 'Ana Costa', email: 'ana.costa@constructflow.com', role: 'Financeiro', status: 'Ativo', lastLogin: '2024-07-29' },
     { id: 'USR-006', name: 'Pedro Martins', email: 'pedro.m@constructflow.com', role: 'Operador', status: 'Inativo', lastLogin: '2024-05-20' },
+];
+
+const initialQuoteData: Quote[] = [
+    { id: 'ORC-001', client: 'Construtora Alfa', equipment: 'Escavadeira CAT 320D', startDate: '2024-08-01', endDate: '2024-08-12', createdDate: '2024-07-28', validUntil: '2024-08-12', value: 15000, status: 'Aprovado' },
+    { id: 'ORC-002', client: 'Engenharia Beta', equipment: 'Betoneira CSM 400L', startDate: '2024-08-05', endDate: '2024-08-20', createdDate: '2024-07-25', validUntil: '2024-08-09', value: 2500, status: 'Pendente' },
+    { id: 'ORC-003', client: 'Obras Gamma', equipment: 'Guindaste Liebherr LTM 1050', startDate: '2024-08-10', endDate: '2024-08-28', createdDate: '2024-07-22', validUntil: '2024-08-06', value: 45000, status: 'Recusado' },
+    { id: 'ORC-004', client: 'Projetos Delta', equipment: 'Andaimes Tubulares (Lote 20)', startDate: '2024-08-15', endDate: '2024-09-13', createdDate: '2024-07-29', validUntil: '2024-08-13', value: 7500, status: 'Pendente' },
+];
+
+const otherStageOrdersData: RentalOrder[] = [
+    { id: 'LOC-001-DEMO', client: 'Construtora Alfa', equipment: 'Escavadeira CAT 320D', startDate: '2024-08-01', endDate: '2024-08-15', value: 15000, status: 'Ativo', statusHistory: [ { status: 'Proposta', date: '2024-07-10' }, { status: 'Aprovado', date: '2024-07-12' }, { status: 'Reservado', date: '2024-07-15' }, { status: 'Em Rota', date: '2024-08-01' }, { status: 'Ativo', date: '2024-08-01' }], createdDate: '2024-07-10', validUntil: '2024-07-25'},
+    { id: 'LOC-002-DEMO', client: 'Engenharia Beta', equipment: 'Betoneira CSM 400L', startDate: '2024-08-05', endDate: '2024-08-10', value: 2500, status: 'Reservado', statusHistory: [ { status: 'Proposta', date: '2024-07-20' }, { status: 'Aprovado', date: '2024-07-22' }, { status: 'Reservado', date: '2024-07-23' }], createdDate: '2024-07-20', validUntil: '2024-08-04'},
+    { id: 'LOC-005-DEMO', client: 'Construtora Alfa', equipment: 'Escavadeira Komatsu PC200', startDate: '2024-07-20', endDate: '2024-07-28', value: 9800, status: 'Pendente de Pagamento', statusHistory: [ { status: 'Proposta', date: '2024-07-01' }, { status: 'Aprovado', date: '2024-07-02' }, { status: 'Reservado', date: '2024-07-05' }, { status: 'Em Rota', date: '2024-07-20' }, { status: 'Ativo', date: '2024-07-20' }, { status: 'Concluído', date: '2024-07-28' }, { status: 'Pendente de Pagamento', date: '2024-07-29' } ], createdDate: '2024-07-01', validUntil: '2024-07-16'},
+    { id: 'LOC-006-DEMO', client: 'Engenharia Beta', equipment: 'Betoneira Menegotti 150L', startDate: '2024-08-12', endDate: '2024-08-18', value: 1800, status: 'Ativo', statusHistory: [ { status: 'Proposta', date: '2024-07-25' }, { status: 'Aprovado', date: '2024-07-28' }, { status: 'Reservado', date: '2024-08-01' }, { status: 'Em Rota', date: '2024-08-12' }, { status: 'Ativo', date: '2024-08-12' }], createdDate: '2024-07-25', validUntil: '2024-08-09' },
+];
+
+const initialRentalOrdersData: RentalOrder[] = [
+    ...initialQuoteData
+        .filter(q => q.status !== 'Recusado')
+        .map((q): RentalOrder => ({
+            ...q,
+            status: q.status === 'Pendente' ? 'Proposta' : 'Aprovado',
+            statusHistory: [{ status: q.status === 'Pendente' ? 'Proposta' : 'Aprovado', date: q.createdDate }]
+        })),
+    ...otherStageOrdersData
 ];
 
 
@@ -123,9 +149,7 @@ const Sidebar: React.FC<{ activePage: Page; setActivePage: (page: Page) => void 
 
 
 const App: React.FC = () => {
-    const [activePage, setActivePage] = useState<Page>('Usuários');
-    const [isQuoteModalOpen, setQuoteModalOpen] = useState(false);
-    const [equipmentForQuote, setEquipmentForQuote] = useState<Equipment | null>(null);
+    const [activePage, setActivePage] = useState<Page>('Locação');
     
     // Client State Management
     const [clients, setClients] = useState<Customer[]>(customerData);
@@ -148,15 +172,37 @@ const App: React.FC = () => {
     const [isDeleteUserModalOpen, setDeleteUserModalOpen] = useState(false);
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
+    // Unified Rental Order State Management
+    const [rentalOrders, setRentalOrders] = useState<RentalOrder[]>(initialRentalOrdersData);
+    const [isAddEditOrderModalOpen, setAddEditOrderModalOpen] = useState(false);
+    const [equipmentForOrder, setEquipmentForOrder] = useState<Equipment | null>(null);
+    const [orderToEdit, setOrderToEdit] = useState<RentalOrder | null>(null);
+    const [isDeleteOrderModalOpen, setDeleteOrderModalOpen] = useState(false);
+    const [orderToDelete, setOrderToDelete] = useState<RentalOrder | null>(null);
+    const [isScheduleDeliveryModalOpen, setScheduleDeliveryModalOpen] = useState(false);
+    const [orderToSchedule, setOrderToSchedule] = useState<RentalOrder | null>(null);
 
-    const handleOpenQuoteModal = (equipment: Equipment | null = null) => {
-        setEquipmentForQuote(equipment);
-        setQuoteModalOpen(true);
+
+    // Pricing State Management
+    const [isPriceTableModalOpen, setPriceTableModalOpen] = useState(false);
+
+
+    const handleOpenOrderModal = (equipment: Equipment | null = null) => {
+        setOrderToEdit(null);
+        setEquipmentForOrder(equipment);
+        setAddEditOrderModalOpen(true);
+    };
+    
+    const handleOpenEditOrderModal = (order: RentalOrder) => {
+        setOrderToEdit(order);
+        setEquipmentForOrder(null);
+        setAddEditOrderModalOpen(true);
     };
 
-    const handleCloseQuoteModal = () => {
-        setQuoteModalOpen(false);
-        setEquipmentForQuote(null);
+    const handleCloseOrderModal = () => {
+        setAddEditOrderModalOpen(false);
+        setEquipmentForOrder(null);
+        setOrderToEdit(null);
     };
     
     // Client Handlers
@@ -278,25 +324,101 @@ const App: React.FC = () => {
             setUserToDelete(null);
         }
     };
+    
+    // Pricing Handlers
+    const handleOpenPriceTableModal = () => setPriceTableModalOpen(true);
+
+    const handleSavePrices = (updatedEquipment: Equipment[]) => {
+        setAllEquipment(updatedEquipment);
+        setPriceTableModalOpen(false);
+    };
+
+    // Rental Order Handlers
+    const handleSaveOrder = (orderData: Omit<RentalOrder, 'id' | 'status' | 'statusHistory'> | RentalOrder) => {
+        if ('id' in orderData && orderData.id) { // Update
+            setRentalOrders(prev => prev.map(o => o.id === orderData.id ? orderData as RentalOrder : o));
+        } else { // Create
+            const maxIdNum = rentalOrders.reduce((max, q) => {
+                const num = parseInt(q.id.split('-')[1]);
+                return isNaN(num) ? max : Math.max(num, max);
+            }, 0);
+            const newId = `ORC-${(maxIdNum + 1).toString().padStart(3, '0')}`;
+            const newOrder: RentalOrder = {
+                ...(orderData as Omit<RentalOrder, 'id' | 'status' | 'statusHistory'>),
+                id: newId,
+                status: 'Proposta',
+                statusHistory: [{ status: 'Proposta', date: orderData.createdDate }]
+            };
+            setRentalOrders(prev => [newOrder, ...prev]);
+        }
+        handleCloseOrderModal();
+    };
+    
+    const handleOpenDeleteOrderModal = (order: RentalOrder) => {
+        setOrderToDelete(order);
+        setDeleteOrderModalOpen(true);
+    };
+    
+    const handleDeleteOrder = () => {
+        if (orderToDelete) {
+            setRentalOrders(prev => prev.filter(q => q.id !== orderToDelete.id));
+            setDeleteOrderModalOpen(false);
+            setOrderToDelete(null);
+        }
+    };
+
+    const handleUpdateOrderStatus = (orderId: string, newStatus: RentalStatus) => {
+        setRentalOrders(prev => prev.map(o => o.id === orderId ? { 
+            ...o, 
+            status: newStatus,
+            statusHistory: [...o.statusHistory, { status: newStatus, date: new Date().toISOString().split('T')[0]}]
+        } : o));
+    };
+
+    const handleOpenScheduleDeliveryModal = (order: RentalOrder) => {
+        setOrderToSchedule(order);
+        setScheduleDeliveryModalOpen(true);
+    };
+
+    const handleCloseScheduleDeliveryModal = () => {
+        setOrderToSchedule(null);
+        setScheduleDeliveryModalOpen(false);
+    };
+
+    const handleSaveDeliveryDate = (orderId: string, deliveryDate: string) => {
+        setRentalOrders(prev => prev.map(o => o.id === orderId ? {
+            ...o,
+            deliveryDate: deliveryDate,
+            status: 'Reservado', // Move to next stage
+            statusHistory: [...o.statusHistory, { status: 'Reservado', date: new Date().toISOString().split('T')[0]}]
+        } : o));
+        handleCloseScheduleDeliveryModal();
+    };
+
 
     const renderContent = () => {
         switch(activePage) {
             case 'Dashboard':
-                return <Dashboard onOpenQuoteModal={handleOpenQuoteModal} />;
+                return <Dashboard onOpenQuoteModal={handleOpenOrderModal} />;
             case 'Equipamentos':
                 return <Equipamentos 
                             equipment={allEquipment}
-                            onOpenQuoteModal={handleOpenQuoteModal}
+                            onOpenQuoteModal={handleOpenOrderModal}
                             onAdd={handleOpenAddEquipmentModal}
                             onEdit={handleOpenEditEquipmentModal}
                             onDelete={handleOpenDeleteEquipmentModal}
                         />;
             case 'Locação':
-                return <Locacao />;
+                return <Locacao 
+                            orders={rentalOrders} 
+                            onOpenAddModal={handleOpenOrderModal}
+                            onEdit={handleOpenEditOrderModal}
+                            onDelete={handleOpenDeleteOrderModal}
+                            onUpdateStatus={handleUpdateOrderStatus}
+                            onOpenScheduleDeliveryModal={handleOpenScheduleDeliveryModal}
+                        />;
             case 'Contratos':
                 return <Contratos />;
-            case 'Orçamentos':
-                return <Orcamentos onOpenQuoteModal={handleOpenQuoteModal} />;
             case 'Clientes':
                 return <Clientes 
                             clients={clients} 
@@ -316,7 +438,7 @@ const App: React.FC = () => {
                             onDelete={handleOpenDeleteUserModal}
                         />;
             case 'Configurações':
-                return <Configuracoes />;
+                return <Configuracoes onOpenPriceTableModal={handleOpenPriceTableModal} />;
             default:
                 return <PlaceholderPage title={activePage} />;
         }
@@ -328,7 +450,14 @@ const App: React.FC = () => {
             <main className="flex-1 ml-64 overflow-y-auto">
                 {renderContent()}
                 <AnimatePresence>
-                    {isQuoteModalOpen && <QuoteModal onClose={handleCloseQuoteModal} equipment={equipmentForQuote} />}
+                    {isAddEditOrderModalOpen && <QuoteModal 
+                        onClose={handleCloseOrderModal} 
+                        equipment={equipmentForOrder} 
+                        orderToEdit={orderToEdit}
+                        clients={clients}
+                        onSave={handleSaveOrder}
+                        allEquipment={allEquipment}
+                    />}
                 </AnimatePresence>
                  <AnimatePresence>
                     {isAddEditClientModalOpen && <AddClientModal 
@@ -377,6 +506,34 @@ const App: React.FC = () => {
                             onConfirm={handleDeleteUser}
                             title="Confirmar Exclusão de Usuário"
                             message={`Tem certeza de que deseja excluir o usuário "${userToDelete.name}"? Esta ação não pode ser desfeita.`}
+                        />
+                    )}
+                </AnimatePresence>
+                <AnimatePresence>
+                    {isDeleteOrderModalOpen && orderToDelete && (
+                        <ConfirmationModal
+                            isOpen={isDeleteOrderModalOpen}
+                            onClose={() => setDeleteOrderModalOpen(false)}
+                            onConfirm={handleDeleteOrder}
+                            title="Confirmar Exclusão de Pedido"
+                            message={`Tem certeza de que deseja excluir o pedido "${orderToDelete.id}"? Esta ação não pode ser desfeita.`}
+                        />
+                    )}
+                </AnimatePresence>
+                 <AnimatePresence>
+                    {isPriceTableModalOpen && <PriceTableModal 
+                        equipment={allEquipment}
+                        onClose={() => setPriceTableModalOpen(false)}
+                        onSave={handleSavePrices}
+                    />}
+                </AnimatePresence>
+                 <AnimatePresence>
+                    {isScheduleDeliveryModalOpen && orderToSchedule && (
+                        <ScheduleDeliveryModal
+                            isOpen={isScheduleDeliveryModalOpen}
+                            onClose={handleCloseScheduleDeliveryModal}
+                            order={orderToSchedule}
+                            onSave={handleSaveDeliveryDate}
                         />
                     )}
                 </AnimatePresence>

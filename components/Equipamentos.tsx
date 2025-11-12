@@ -43,7 +43,7 @@ const Equipamentos: React.FC<EquipamentosProps> = ({ equipment, onOpenQuoteModal
         });
     }, [searchTerm, statusFilter, categoryFilter, equipment]);
 
-    const containerVariants = {
+    const containerVariants: Variants = {
         hidden: { opacity: 0 },
         visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
     };

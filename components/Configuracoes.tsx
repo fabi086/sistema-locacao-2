@@ -19,7 +19,8 @@ const settingsCards = [
         icon: BadgeDollarSign,
         title: "Tabela de Preços",
         description: "Defina e ajuste as taxas de locação por período e cliente.",
-        buttonText: "Gerenciar"
+        buttonText: "Gerenciar",
+        action: 'openPriceTable'
     },
     {
         icon: Plug,
@@ -34,7 +35,18 @@ const cardVariants: Variants = {
     visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } }
 };
 
-const Configuracoes: React.FC = () => {
+interface ConfiguracoesProps {
+    onOpenPriceTableModal: () => void;
+}
+
+const Configuracoes: React.FC<ConfiguracoesProps> = ({ onOpenPriceTableModal }) => {
+    
+    const handleCardClick = (action?: string) => {
+        if (action === 'openPriceTable') {
+            onOpenPriceTableModal();
+        }
+    };
+
     return (
         <div className="p-6 md:p-8">
             <header className="mb-8">
@@ -61,7 +73,10 @@ const Configuracoes: React.FC = () => {
                                 <h3 className="text-lg font-bold text-neutral-text-primary">{card.title}</h3>
                             </div>
                             <p className="text-neutral-text-secondary text-sm flex-grow mb-6">{card.description}</p>
-                            <button className="w-full text-center mt-auto px-4 py-2 text-sm font-semibold bg-neutral-card-alt text-neutral-text-primary rounded-lg hover:bg-gray-200 border border-gray-300 transition-colors">
+                            <button 
+                                onClick={() => handleCardClick(card.action)}
+                                className="w-full text-center mt-auto px-4 py-2 text-sm font-semibold bg-neutral-card-alt text-neutral-text-primary rounded-lg hover:bg-gray-200 border border-gray-300 transition-colors"
+                            >
                                 {card.buttonText}
                             </button>
                         </motion.div>
