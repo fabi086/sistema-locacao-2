@@ -5,9 +5,13 @@ import PlaceholderPage from './components/PlaceholderPage';
 import Equipamentos from './components/Equipamentos';
 import QuoteModal from './components/QuoteModal';
 import Locacao from './components/Locacao';
+import Contratos from './components/Contratos';
 import Orcamentos from './components/Orcamentos';
-import Clientes from './components/Clientes'; // Importa o novo componente
-import AddClientModal from './components/AddClientModal'; // Importa o modal de cliente
+import Clientes from './components/Clientes';
+import Agenda from './components/Agenda';
+import Manutencao from './components/Manutencao';
+import Usuarios from './components/Usuarios'; // Importa o novo componente
+import AddClientModal from './components/AddClientModal';
 import { Equipment, Customer } from './types';
 import { Truck, Wrench, FileText, Users, Building, Calendar, DollarSign, Settings, BarChart2, HardHat, LogOut, ChevronLeft, LayoutDashboard, FilePlus2 } from 'lucide-react';
 
@@ -77,7 +81,7 @@ const Sidebar: React.FC<{ activePage: Page; setActivePage: (page: Page) => void 
 
 
 const App: React.FC = () => {
-    const [activePage, setActivePage] = useState<Page>('Clientes');
+    const [activePage, setActivePage] = useState<Page>('Usuários');
     const [isQuoteModalOpen, setQuoteModalOpen] = useState(false);
     const [equipmentForQuote, setEquipmentForQuote] = useState<Equipment | null>(null);
     const [isAddClientModalOpen, setAddClientModalOpen] = useState(false);
@@ -113,10 +117,18 @@ const App: React.FC = () => {
                 return <Equipamentos onOpenQuoteModal={handleOpenQuoteModal} />;
             case 'Locação':
                 return <Locacao />;
+            case 'Contratos':
+                return <Contratos />;
             case 'Orçamentos':
                 return <Orcamentos onOpenQuoteModal={handleOpenQuoteModal} />;
             case 'Clientes':
                 return <Clientes clients={clients} onOpenAddClientModal={() => setAddClientModalOpen(true)} />;
+            case 'Agenda':
+                return <Agenda />;
+            case 'Manutenção':
+                return <Manutencao />;
+            case 'Usuários':
+                return <Usuarios />;
             default:
                 return <PlaceholderPage title={activePage} />;
         }

@@ -94,3 +94,47 @@ export interface Customer {
     phone: string;
     status: CustomerStatus;
 }
+
+export type ContractStatus = 'Pendente' | 'Ativo' | 'Vencido';
+
+export interface Contract {
+    id: string;
+    client: string;
+    startDate: string;
+    endDate: string;
+    value: number;
+    status: ContractStatus;
+}
+
+export type CalendarEventType = 'Entrega' | 'Coleta' | 'Manutenção';
+
+export interface CalendarEvent {
+    id: string;
+    title: string;
+    date: string; // YYYY-MM-DD
+    type: CalendarEventType;
+}
+
+export type MaintenanceStatus = 'Pendente' | 'Em Andamento' | 'Concluída';
+export type MaintenanceType = 'Preventiva' | 'Corretiva';
+
+export interface MaintenanceOrder {
+    id: string;
+    equipment: string;
+    type: MaintenanceType;
+    status: MaintenanceStatus;
+    cost: number;
+    scheduledDate: string;
+}
+
+export type UserRole = 'Admin' | 'Operador' | 'Comercial' | 'Logística' | 'Financeiro';
+export type UserStatus = 'Ativo' | 'Inativo';
+
+export interface User {
+    id: string;
+    name: string;
+    email: string;
+    role: UserRole;
+    status: UserStatus;
+    lastLogin: string;
+}
