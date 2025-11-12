@@ -1,16 +1,50 @@
-import React from 'react';
-// FIX: Import Variants type from framer-motion to fix type errors.
+import React, { useState, useEffect } from 'react';
 import { motion, Variants } from 'framer-motion';
 import { X, HardHat, List, Tag, MapPin } from 'lucide-react';
-import { EquipmentCategory } from '../types';
+import { Equipment, EquipmentCategory } from '../types';
 
-const AddEquipmentModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+interface AddEquipmentModalProps {
+    onClose: () => void;
+    onSave: (equipmentData: Omit<Equipment, 'id'>) => void;
+    equipmentToEdit?: Equipment | null;
+}
+
+const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, equipmentToEdit }) => {
+    const [name, setName] = useState('');
+    const [category, setCategory] = useState<EquipmentCategory | ''>('');
+    const [serialNumber, setSerialNumber] = useState('');
+    const [location, setLocation] = useState('');
+
+    const isEditing = !!equipmentToEdit;
+
+    useEffect(() => {
+        if (isEditing) {
+            setName(equipmentToEdit.name);
+            setCategory(equipmentToEdit.category);
+            setSerialNumber(equipmentToEdit.serialNumber);
+            setLocation(equipmentToEdit.location);
+        }
+    }, [equipmentToEdit, isEditing]);
+
+    const handleSubmit = () => {
+        if (!name || !category || !serialNumber || !location) {
+            alert('Todos os campos são obrigatórios.');
+            return;
+        }
+
+        const commonData = { name, category, serialNumber, location };
+        const equipmentData = isEditing 
+            ? { ...equipmentToEdit, ...commonData } 
+            : { ...commonData, status: 'Disponível' }; // Status default para novos
+
+        onSave(equipmentData as Omit<Equipment, 'id'>);
+    };
+
     const backdropVariants = {
         hidden: { opacity: 0 },
         visible: { opacity: 1 },
     };
 
-    // FIX: Explicitly type variants with Variants to fix type error.
     const modalVariants: Variants = {
         hidden: { opacity: 0, y: 50, scale: 0.95 },
         visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.3, ease: 'easeOut' } },
@@ -36,7 +70,7 @@ const AddEquipmentModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 onClick={(e) => e.stopPropagation()}
             >
                 <header className="p-6 bg-neutral-card border-b border-neutral-card-alt flex justify-between items-center">
-                    <h2 className="text-xl font-bold text-neutral-text-primary">Adicionar Novo Equipamento</h2>
+                    <h2 className="text-xl font-bold text-neutral-text-primary">{isEditing ? 'Editar Equipamento' : 'Adicionar Novo Equipamento'}</h2>
                     <button onClick={onClose} className="p-2 rounded-full hover:bg-neutral-card-alt text-neutral-text-secondary transition-colors" aria-label="Fechar modal">
                         <X size={20} />
                     </button>
@@ -46,7 +80,7 @@ const AddEquipmentModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         <label htmlFor="name" className="block text-sm font-semibold text-neutral-text-primary mb-2">Nome do Equipamento</label>
                         <div className="relative">
                             <HardHat size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
-                            <input type="text" id="name" placeholder="Ex: Escavadeira CAT 320D" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white" />
+                            <input type="text" id="name" placeholder="Ex: Escavadeira CAT 320D" value={name} onChange={e => setName(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white" />
                         </div>
                     </div>
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -54,7 +88,7 @@ const AddEquipmentModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                            <label htmlFor="category" className="block text-sm font-semibold text-neutral-text-primary mb-2">Categoria</label>
                              <div className="relative">
                                 <List size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
-                                <select id="category" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white">
+                                <select id="category" value={category} onChange={e => setCategory(e.target.value as EquipmentCategory)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white">
                                     <option value="">Selecione...</option>
                                     {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                 </select>
@@ -64,7 +98,7 @@ const AddEquipmentModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                            <label htmlFor="serial" className="block text-sm font-semibold text-neutral-text-primary mb-2">N° de Série</label>
                              <div className="relative">
                                 <Tag size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
-                                <input type="text" id="serial" placeholder="ABC-12345" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white" />
+                                <input type="text" id="serial" placeholder="ABC-12345" value={serialNumber} onChange={e => setSerialNumber(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white" />
                             </div>
                         </div>
                     </div>
@@ -72,7 +106,7 @@ const AddEquipmentModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         <label htmlFor="location" className="block text-sm font-semibold text-neutral-text-primary mb-2">Localização Inicial</label>
                          <div className="relative">
                             <MapPin size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
-                            <input type="text" id="location" placeholder="Ex: Pátio A, Garagem 2" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white" />
+                            <input type="text" id="location" placeholder="Ex: Pátio A, Garagem 2" value={location} onChange={e => setLocation(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white" />
                         </div>
                     </div>
                 </div>
@@ -80,7 +114,7 @@ const AddEquipmentModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     <button onClick={onClose} className="px-5 py-2.5 text-sm font-semibold text-neutral-text-secondary bg-neutral-card rounded-lg hover:bg-gray-200 border border-gray-300 transition-colors">
                         Cancelar
                     </button>
-                    <button onClick={onClose} className="px-5 py-2.5 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-lg shadow-sm transition-colors">
+                    <button onClick={handleSubmit} className="px-5 py-2.5 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-lg shadow-sm transition-colors">
                         Salvar Equipamento
                     </button>
                 </footer>

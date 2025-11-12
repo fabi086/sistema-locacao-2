@@ -138,3 +138,11 @@ export interface User {
     status: UserStatus;
     lastLogin: string;
 }
+
+export interface ConfirmationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+}

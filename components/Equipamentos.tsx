@@ -1,31 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Search } from 'lucide-react';
-// FIX: Import Variants type from framer-motion to fix type errors.
+import { Plus, Search, Edit2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
-import { Equipment, EquipmentStatus, EquipmentCategory, RentalHistoryItem, MaintenanceRecord } from '../types';
-import AddEquipmentModal from './AddEquipmentModal';
+import { Equipment, EquipmentStatus, EquipmentCategory } from '../types';
 import EquipmentDetailDrawer from './EquipmentDetailDrawer';
-
-const rentalHistoryData: RentalHistoryItem[] = [
-    { id: 'RENT-001', client: 'Construtora Alfa', startDate: '2024-06-05', endDate: '2024-06-15' },
-    { id: 'RENT-002', client: 'Engenharia Beta', startDate: '2024-07-20', endDate: '2024-08-05' },
-     { id: 'RENT-003', client: 'Obras Gamma', startDate: '2024-05-10', endDate: '2024-05-25' },
-];
-
-const maintenanceHistoryData: MaintenanceRecord[] = [
-    { id: 'MAINT-001', type: 'Preventiva', date: '2024-06-25', description: 'Troca de óleo e filtros', cost: 850.00 },
-    { id: 'MAINT-002', type: 'Corretiva', date: '2024-07-10', description: 'Reparo no sistema hidráulico', cost: 2500.00 },
-];
-
-
-const equipmentData: Equipment[] = [
-    { id: 'EQP-001', name: 'Escavadeira CAT 320D', category: 'Escavadeiras', serialNumber: 'CAT320D-12345', status: 'Disponível', location: 'Pátio A', rentalHistory: rentalHistoryData, maintenanceHistory: maintenanceHistoryData },
-    { id: 'EQP-002', name: 'Betoneira CSM 400L', category: 'Betoneiras', serialNumber: 'CSM400-67890', status: 'Em Uso', location: 'Obra Central' },
-    { id: 'EQP-003', name: 'Guindaste Liebherr LTM 1050', category: 'Guindastes', serialNumber: 'LTM1050-11223', status: 'Manutenção', location: 'Oficina' },
-    { id: 'EQP-004', name: 'Andaimes Tubulares (Lote 20)', category: 'Andaimes', serialNumber: 'AND-L20-33445', status: 'Disponível', location: 'Pátio B' },
-    { id: 'EQP-005', name: 'Escavadeira Komatsu PC200', category: 'Escavadeiras', serialNumber: 'KPC200-54321', status: 'Disponível', location: 'Pátio A', rentalHistory: [{id: 'RENT-010', client: 'Projetos Delta', startDate: '2024-07-01', endDate: '2024-07-08'}] },
-    { id: 'EQP-006', name: 'Betoneira Menegotti 150L', category: 'Betoneiras', serialNumber: 'MEN150-09876', status: 'Manutenção', location: 'Oficina', maintenanceHistory: [{ id: 'MAINT-005', type: 'Preventiva', date: '2024-07-22', description: 'Revisão geral', cost: 1200.00 }] },
-];
 
 const statusColors: Record<EquipmentStatus, string> = {
     'Disponível': 'bg-accent-success/10 text-accent-success',
@@ -39,15 +16,22 @@ const StatusBadge: React.FC<{ status: EquipmentStatus }> = ({ status }) => (
     </span>
 );
 
-const Equipamentos: React.FC<{ onOpenQuoteModal: (equipment: Equipment) => void }> = ({ onOpenQuoteModal }) => {
+interface EquipamentosProps {
+    equipment: Equipment[];
+    onOpenQuoteModal: (equipment: Equipment) => void;
+    onAdd: () => void;
+    onEdit: (equipment: Equipment) => void;
+    onDelete: (equipment: Equipment) => void;
+}
+
+const Equipamentos: React.FC<EquipamentosProps> = ({ equipment, onOpenQuoteModal, onAdd, onEdit, onDelete }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<EquipmentStatus | 'Todos'>('Todos');
     const [categoryFilter, setCategoryFilter] = useState<EquipmentCategory | 'Todas'>('Todas');
-    const [isAddModalOpen, setAddModalOpen] = useState(false);
     const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
 
     const filteredEquipment = useMemo(() => {
-        return equipmentData.filter(eq => {
+        return equipment.filter(eq => {
             const searchMatch = searchTerm.toLowerCase() === '' ||
                 eq.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 eq.serialNumber.toLowerCase().includes(searchTerm.toLowerCase());
@@ -57,24 +41,24 @@ const Equipamentos: React.FC<{ onOpenQuoteModal: (equipment: Equipment) => void 
 
             return searchMatch && statusMatch && categoryMatch;
         });
-    }, [searchTerm, statusFilter, categoryFilter]);
+    }, [searchTerm, statusFilter, categoryFilter, equipment]);
 
     const containerVariants = {
         hidden: { opacity: 0 },
         visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
     };
 
-    // FIX: Explicitly type variants with Variants to fix type error.
     const itemVariants: Variants = {
         hidden: { y: 20, opacity: 0 },
         visible: { y: 0, opacity: 1, transition: { duration: 0.3, ease: 'easeOut' } }
     };
+    
+    const handleRowClick = (eq: Equipment) => {
+        setSelectedEquipment(eq);
+    };
 
     return (
         <>
-            <AnimatePresence>
-                {isAddModalOpen && <AddEquipmentModal onClose={() => setAddModalOpen(false)} />}
-            </AnimatePresence>
             <AnimatePresence>
                  {selectedEquipment && <EquipmentDetailDrawer equipment={selectedEquipment} onClose={() => setSelectedEquipment(null)} onOpenQuoteModal={onOpenQuoteModal} />}
             </AnimatePresence>
@@ -84,7 +68,7 @@ const Equipamentos: React.FC<{ onOpenQuoteModal: (equipment: Equipment) => void 
                         <h2 className="text-3xl font-bold text-neutral-text-primary">Inventário de Equipamentos</h2>
                         <p className="text-neutral-text-secondary mt-1">Gerencie e monitore sua frota.</p>
                     </div>
-                    <button onClick={() => setAddModalOpen(true)} className="flex items-center gap-2 text-sm font-semibold bg-secondary text-white px-4 py-2 rounded-lg shadow-sm hover:bg-secondary-dark transition-colors mt-4 md:mt-0">
+                    <button onClick={onAdd} className="flex items-center gap-2 text-sm font-semibold bg-secondary text-white px-4 py-2 rounded-lg shadow-sm hover:bg-secondary-dark transition-colors mt-4 md:mt-0">
                         <Plus size={16} />
                         <span>Adicionar Equipamento</span>
                     </button>
@@ -140,21 +124,31 @@ const Equipamentos: React.FC<{ onOpenQuoteModal: (equipment: Equipment) => void 
                                 <th className="p-4 hidden md:table-cell">N° de Série</th>
                                 <th className="p-4">Status</th>
                                 <th className="p-4 hidden sm:table-cell">Localização</th>
+                                <th className="p-4 text-center">Ações</th>
                             </tr>
                         </thead>
                         <motion.tbody variants={containerVariants}>
                             {filteredEquipment.map(eq => (
                                 <motion.tr 
                                     key={eq.id} 
-                                    className="border-b border-neutral-card-alt hover:bg-neutral-bg cursor-pointer" 
+                                    className="border-b border-neutral-card-alt hover:bg-neutral-bg" 
                                     variants={itemVariants}
-                                    onClick={() => setSelectedEquipment(eq)}
                                 >
-                                    <td className="p-4 font-semibold text-neutral-text-primary">{eq.name}</td>
-                                    <td className="p-4 text-neutral-text-secondary">{eq.category}</td>
-                                    <td className="p-4 text-neutral-text-secondary hidden md:table-cell">{eq.serialNumber}</td>
-                                    <td className="p-4"><StatusBadge status={eq.status} /></td>
-                                    <td className="p-4 text-neutral-text-secondary hidden sm:table-cell">{eq.location}</td>
+                                    <td className="p-4 font-semibold text-neutral-text-primary cursor-pointer" onClick={() => handleRowClick(eq)}>{eq.name}</td>
+                                    <td className="p-4 text-neutral-text-secondary cursor-pointer" onClick={() => handleRowClick(eq)}>{eq.category}</td>
+                                    <td className="p-4 text-neutral-text-secondary hidden md:table-cell cursor-pointer" onClick={() => handleRowClick(eq)}>{eq.serialNumber}</td>
+                                    <td className="p-4 cursor-pointer" onClick={() => handleRowClick(eq)}><StatusBadge status={eq.status} /></td>
+                                    <td className="p-4 text-neutral-text-secondary hidden sm:table-cell cursor-pointer" onClick={() => handleRowClick(eq)}>{eq.location}</td>
+                                    <td className="p-4">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <button onClick={() => onEdit(eq)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors">
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button onClick={() => onDelete(eq)} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors">
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </td>
                                 </motion.tr>
                             ))}
                         </motion.tbody>
