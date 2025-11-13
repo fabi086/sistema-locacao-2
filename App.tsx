@@ -160,7 +160,7 @@ const Sidebar: React.FC<{
 
 const App: React.FC = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [activePage, setActivePage] = useState<Page>('Agenda');
+    const [activePage, setActivePage] = useState<Page>('Dashboard');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     
     // Client State Management
@@ -467,6 +467,7 @@ const App: React.FC = () => {
     // Auth Handlers
     const handleLoginSuccess = () => {
         setIsAuthenticated(true);
+        setActivePage('Dashboard');
     };
 
     const handleLogout = () => {
@@ -477,7 +478,12 @@ const App: React.FC = () => {
     const renderContent = () => {
         switch(activePage) {
             case 'Dashboard':
-                return <Dashboard onOpenQuoteModal={handleOpenOrderModal} />;
+                return <Dashboard 
+                    onOpenQuoteModal={handleOpenOrderModal}
+                    rentalOrders={rentalOrders}
+                    equipment={allEquipment}
+                    maintenanceOrders={maintenanceOrders}
+                />;
             case 'Equipamentos':
                 return <Equipamentos 
                             equipment={allEquipment}
@@ -534,7 +540,7 @@ const App: React.FC = () => {
     }
 
     return (
-        <div className="h-screen font-sans text-neutral-text-primary bg-neutral-bg">
+        <div className="flex h-screen font-sans text-neutral-text-primary bg-neutral-bg">
             <Sidebar 
                 activePage={activePage} 
                 setActivePage={setActivePage} 

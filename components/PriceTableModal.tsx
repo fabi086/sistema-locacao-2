@@ -32,11 +32,9 @@ const PriceTableModal: React.FC<PriceTableModalProps> = ({ onClose, onSave, equi
     const handlePriceChange = (id: string, field: 'daily' | 'weekly' | 'biweekly' | 'monthly', value: string) => {
         // Permite apenas números e um ponto decimal
         if (/^\d*\.?\d*$/.test(value)) {
-            // FIX: Refactored setPrices to be fully type-safe, handling potentially undefined prev[id].
             setPrices(prev => {
                 const currentPrices = prev[id];
                 if (!currentPrices) {
-                    // This should not happen with the current logic, but it makes the function robust.
                     return prev;
                 }
                 return {

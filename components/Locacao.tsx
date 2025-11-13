@@ -70,7 +70,6 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
             const searchMatch = searchTerm.toLowerCase() === '' ||
                 order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 order.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                // FIX: The 'equipment' property does not exist on 'RentalOrder'. Switched to 'equipmentItems' to correctly filter by equipment name.
                 order.equipmentItems.some(item => item.equipmentName.toLowerCase().includes(searchTerm.toLowerCase()));
             
             const statusMatch = statusFilter === 'Todos' || order.status === statusFilter;

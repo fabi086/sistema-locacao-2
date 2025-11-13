@@ -49,12 +49,10 @@ const Orcamentos: React.FC<OrcamentosProps> = ({ quotes, onOpenQuoteModal, onEdi
     return (
         <>
             <AnimatePresence>
-                {/* FIX: Transform Quote object to RentalOrder to match QuotePrintModal's expected props. */}
                 {quoteToPrint && <QuotePrintModal quote={{
                     ...quoteToPrint,
-                    // FIX: Added the `value` property to the equipment item to match the `EquipmentOrderItem` type.
                     equipmentItems: [{ equipmentId: 'N/A', equipmentName: quoteToPrint.equipment, value: quoteToPrint.value }],
-                    status: 'Proposta', // Fulfill type requirement for printing
+                    status: 'Proposta', 
                     statusHistory: [{ status: 'Proposta', date: quoteToPrint.createdDate }],
                 } as RentalOrder} onClose={() => setQuoteToPrint(null)} />}
             </AnimatePresence>

@@ -1,46 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { DollarSign, Percent, HardHat, Wrench, Plus, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import KpiCard from './KpiCard';
 import RevenueChart from './RevenueChart';
-import { Activity, Client, Kpi, RevenueData, Equipment } from '../types';
+import { Activity, Client, Kpi, RevenueData, Equipment, MaintenanceOrder, RentalOrder } from '../types';
 
-const kpiData: Kpi[] = [
-    { title: 'Receita (período)', value: 'R$ 1.250.300', change: 12, Icon: DollarSign },
-    { title: 'Utilização Média', value: '82%', change: -2, Icon: Percent },
-    { title: 'Equipamentos Disponíveis', value: '48', change: 5, Icon: HardHat },
-    { title: 'Pendências de Manutenção', value: '7', change: 1, Icon: Wrench, isWarning: true },
-];
-
-const deliveries: Activity[] = [
-    { id: 'ORD-001', client: 'Construtora Alfa', status: 'Em Rota', color: 'bg-blue-500' },
-    { id: 'ORD-002', client: 'Engenharia Beta', status: 'Ag. Coleta', color: 'bg-yellow-500' },
-    { id: 'ORD-003', client: 'Obras Gamma', status: 'Concluído', color: 'bg-green-500' },
-];
-
-const recentActivities: Activity[] = [
-    { id: 'CTR-123', client: 'Contrato com Construtora Alfa assinado.', status: 'Pendente', color: 'bg-orange-500' },
-    { id: 'ORC-456', client: 'Orçamento para Engenharia Beta aprovado.', status: 'Aprovado', color: 'bg-green-500' },
-];
-
-const topClients: Client[] = [
-    { name: 'Construtora Alfa', debt: 15230.50 },
-    { name: 'Engenharia Beta', debt: 12100.00 },
-    { name: 'Obras Gamma', debt: 8750.80 },
-    { name: 'Projetos Delta', debt: 4500.00 },
-    { name: 'Infra Epsilon', debt: 2100.25 },
-];
 
 const periods = ['Este Mês', 'Últimos 7 dias', 'Últimos 30 dias', 'Este Ano'];
-
-const generateRevenueData = (): RevenueData[] => {
-    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul'];
-    return months.map(month => ({
-        name: month,
-        Receita: Math.floor(Math.random() * (250000 - 100000 + 1)) + 100000,
-    }));
-};
-
 
 const ActivityList: React.FC<{title: string; items: Activity[]}> = ({title, items}) => (
     <div className="bg-neutral-card p-6 rounded-lg shadow-sm h-full">
@@ -58,6 +24,7 @@ const ActivityList: React.FC<{title: string; items: Activity[]}> = ({title, item
                     </div>
                 </li>
             ))}
+             {items.length === 0 && <p className="text-center text-neutral-text-secondary text-sm pt-4">Nenhuma atividade no momento.</p>}
         </ul>
     </div>
 );
@@ -69,23 +36,159 @@ const ClientList: React.FC<{title: string; clients: Client[]}> = ({title, client
             {clients.map(client => (
                 <li key={client.name} className="flex items-center justify-between text-sm hover:bg-neutral-bg p-2 rounded-md">
                     <p className="font-semibold text-neutral-text-primary">{client.name}</p>
-                    <p className="text-accent-danger font-bold">R$ {client.debt.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    <p className="text-neutral-text-primary font-bold">R$ {client.debt.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 </li>
             ))}
+             {clients.length === 0 && <p className="text-center text-neutral-text-secondary text-sm pt-4">Nenhum cliente para exibir.</p>}
         </ul>
     </div>
 );
 
 
-const Dashboard: React.FC<{ onOpenQuoteModal: (equipment?: Equipment | null) => void }> = ({ onOpenQuoteModal }) => {
+const Dashboard: React.FC<{ 
+    onOpenQuoteModal: (equipment?: Equipment | null) => void;
+    rentalOrders: RentalOrder[];
+    equipment: Equipment[];
+    maintenanceOrders: MaintenanceOrder[];
+}> = ({ onOpenQuoteModal, rentalOrders, equipment, maintenanceOrders }) => {
     const [isDateFilterOpen, setDateFilterOpen] = useState(false);
     const [selectedPeriod, setSelectedPeriod] = useState('Este Mês');
     const [revenueData, setRevenueData] = useState<RevenueData[]>([]);
     const dateFilterRef = useRef<HTMLDivElement>(null);
 
+    // KPI Calculations
+    const kpiData: Kpi[] = useMemo(() => {
+        const totalRevenue = rentalOrders.reduce((acc, order) => {
+            if (order.status !== 'Proposta') {
+                return acc + order.value + (order.freightCost || 0) + (order.accessoriesCost || 0) - (order.discount || 0);
+            }
+            return acc;
+        }, 0);
+
+        const equipmentInUse = equipment.filter(e => e.status === 'Em Uso').length;
+        const totalEquipment = equipment.length;
+        const averageUtilization = totalEquipment > 0 ? Math.round((equipmentInUse / totalEquipment) * 100) : 0;
+        
+        const availableEquipment = equipment.filter(e => e.status === 'Disponível').length;
+        
+        const pendingMaintenance = maintenanceOrders.filter(m => m.status === 'Pendente').length;
+
+        return [
+            { title: 'Receita (período)', value: `R$ ${totalRevenue.toLocaleString('pt-BR')}`, Icon: DollarSign },
+            { title: 'Utilização Média', value: `${averageUtilization}%`, Icon: Percent },
+            { title: 'Equipamentos Disponíveis', value: String(availableEquipment), Icon: HardHat },
+            { title: 'Pendências de Manutenção', value: String(pendingMaintenance), Icon: Wrench, isWarning: true },
+        ];
+    }, [rentalOrders, equipment, maintenanceOrders]);
+    
+    // Revenue Chart Data
     useEffect(() => {
-        setRevenueData(generateRevenueData());
-    }, [selectedPeriod]);
+        const generateRevenueData = (orders: RentalOrder[]): RevenueData[] => {
+            const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+            const revenueByMonth: Record<string, number> = {};
+
+            orders.forEach(order => {
+                if (order.status !== 'Proposta') {
+                    const date = new Date(order.createdDate + 'T00:00:00');
+                    if(date.getFullYear() === 2024){ // Filter for current year as per sample data
+                        const monthIndex = date.getMonth();
+                        const monthName = months[monthIndex];
+                        const orderTotal = order.value + (order.freightCost || 0) + (order.accessoriesCost || 0) - (order.discount || 0);
+                        if (revenueByMonth[monthName]) {
+                            revenueByMonth[monthName] += orderTotal;
+                        } else {
+                            revenueByMonth[monthName] = orderTotal;
+                        }
+                    }
+                }
+            });
+
+            const sortedMonths = Object.keys(revenueByMonth).sort((a, b) => months.indexOf(a) - months.indexOf(b));
+
+            return sortedMonths.map(month => ({
+                name: month,
+                Receita: revenueByMonth[month],
+            }));
+        };
+
+        setRevenueData(generateRevenueData(rentalOrders));
+    }, [rentalOrders]);
+
+    // Entregas e Retornos Data
+    const deliveries: Activity[] = useMemo(() => {
+        const relevantOrders = rentalOrders
+            .filter(o => ['Em Rota', 'Ativo', 'Concluído'].includes(o.status))
+            .sort((a,b) => new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime())
+            .slice(0,3);
+
+        return relevantOrders.map(o => {
+            let statusText = o.status;
+            let color = 'bg-gray-500';
+
+            if(o.status === 'Em Rota') {
+                color = 'bg-blue-500';
+            } else if (o.status === 'Ativo') {
+                statusText = 'Ag. Coleta';
+                color = 'bg-yellow-500';
+            } else if (o.status === 'Concluído') {
+                color = 'bg-green-500';
+            }
+            return {
+                id: o.id,
+                client: o.client,
+                status: statusText,
+                color: color,
+            };
+        });
+    }, [rentalOrders]);
+
+
+    // Top Clients Data (based on total order value)
+    const topClients: Client[] = useMemo(() => {
+        const clientValue: Record<string, number> = {};
+        rentalOrders.forEach(order => {
+             const total = order.value + (order.freightCost || 0) + (order.accessoriesCost || 0) - (order.discount || 0);
+             if (clientValue[order.client]) {
+                 clientValue[order.client] += total;
+             } else {
+                 clientValue[order.client] = total;
+             }
+        });
+
+        return Object.entries(clientValue)
+            .map(([name, debt]) => ({ name, debt }))
+            .sort((a, b) => b.debt - a.debt)
+            .slice(0, 5);
+    }, [rentalOrders]);
+
+    // Recent Activities Data
+    const recentActivities: Activity[] = useMemo(() => {
+        return rentalOrders
+            .sort((a, b) => new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime())
+            .slice(0, 2)
+            .map(o => {
+                let statusText = '';
+                let color = '';
+                let clientText = '';
+
+                if (o.status === 'Aprovado') {
+                    statusText = 'Aprovado';
+                    color = 'bg-green-500';
+                    clientText = `Orçamento para ${o.client} aprovado.`
+                } else {
+                    statusText = 'Pendente';
+                    color = 'bg-orange-500';
+                    clientText = `Orçamento para ${o.client} criado.`
+                }
+
+                return {
+                    id: o.id,
+                    client: clientText,
+                    status: statusText,
+                    color: color,
+                };
+            });
+    }, [rentalOrders]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -166,18 +269,22 @@ const Dashboard: React.FC<{ onOpenQuoteModal: (equipment?: Equipment | null) => 
                 ))}
             </motion.div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                   <RevenueChart data={revenueData} />
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2">
+                       <RevenueChart data={revenueData} />
+                    </div>
+                    <div>
+                       <ActivityList title="Entregas e Retornos" items={deliveries} />
+                    </div>
                 </div>
-                <div className="space-y-6">
-                   <ActivityList title="Entregas e Retornos" items={deliveries} />
-                </div>
-                 <div className="lg:col-span-2">
-                    <ClientList title="Top 5 Clientes com Dívida" clients={topClients} />
-                </div>
-                <div>
-                    <ActivityList title="Atividades Recentes e Alertas" items={recentActivities} />
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2">
+                        <ClientList title="Top 5 Clientes (Valor Total)" clients={topClients} />
+                    </div>
+                    <div>
+                        <ActivityList title="Atividades Recentes e Alertas" items={recentActivities} />
+                    </div>
                 </div>
             </div>
         </div>

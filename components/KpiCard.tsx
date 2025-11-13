@@ -17,7 +17,7 @@ const cardVariants: Variants = {
 };
 
 const KpiCard: React.FC<Kpi> = ({ title, value, change, Icon, isWarning = false }) => {
-    const isPositive = change >= 0;
+    const isPositive = typeof change !== 'undefined' && change >= 0;
     const changeColor = isWarning ? 'text-accent-danger' : (isPositive ? 'text-accent-success' : 'text-accent-danger');
 
     return (
@@ -33,13 +33,15 @@ const KpiCard: React.FC<Kpi> = ({ title, value, change, Icon, isWarning = false 
             </div>
             <div>
                 <p className="text-3xl font-bold text-neutral-text-primary mt-4">{value}</p>
-                <div className="flex items-center text-sm mt-1">
-                    <span className={`flex items-center font-semibold ${changeColor}`}>
-                        { isWarning ? null : (isPositive ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />) }
-                        {change}% 
-                    </span>
-                    <span className="text-neutral-text-secondary ml-1">vs mês anterior</span>
-                </div>
+                {typeof change !== 'undefined' && (
+                    <div className="flex items-center text-sm mt-1">
+                        <span className={`flex items-center font-semibold ${changeColor}`}>
+                            { isWarning ? null : (isPositive ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />) }
+                            {Math.abs(change)}% 
+                        </span>
+                        <span className="text-neutral-text-secondary ml-1">vs mês anterior</span>
+                    </div>
+                )}
             </div>
         </motion.div>
     );

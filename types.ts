@@ -3,7 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 export interface Kpi {
     title: string;
     value: string;
-    change: number;
+    change?: number;
     Icon: LucideIcon;
     isWarning?: boolean;
 }

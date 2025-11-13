@@ -33,7 +33,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         }
 
         const commonData = { name, category, serialNumber, location };
-        // FIX: Explicitly cast 'Disponível' to EquipmentStatus to ensure type correctness.
+        
         const equipmentData = isEditing 
             ? { ...equipmentToEdit, ...commonData } 
             : { ...commonData, status: 'Disponível' as EquipmentStatus }; // Status default para novos
