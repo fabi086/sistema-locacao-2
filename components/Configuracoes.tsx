@@ -2,18 +2,31 @@ import React from 'react';
 import { motion, Variants } from 'framer-motion';
 import { Users, FileText, BadgeDollarSign, Plug } from 'lucide-react';
 
-const settingsCards = [
+interface SettingsCardData {
+    icon: React.ElementType;
+    title: string;
+    description: string;
+    buttonText: string;
+    action: 'openPriceTable' | 'navigateTo';
+    page?: string;
+}
+
+const settingsCards: SettingsCardData[] = [
     {
         icon: Users,
         title: "Usuários e Permissões",
         description: "Gerencie membros da equipe e seus níveis de acesso.",
-        buttonText: "Gerenciar"
+        buttonText: "Gerenciar",
+        action: 'navigateTo',
+        page: 'Usuários'
     },
     {
         icon: FileText,
         title: "Modelos",
         description: "Personalize modelos de contratos, orçamentos e faturas.",
-        buttonText: "Gerenciar"
+        buttonText: "Gerenciar",
+        action: 'navigateTo',
+        page: 'Contratos'
     },
     {
         icon: BadgeDollarSign,
@@ -26,7 +39,9 @@ const settingsCards = [
         icon: Plug,
         title: "Integrações",
         description: "Conecte o ConstructFlow com outras ferramentas.",
-        buttonText: "Gerenciar"
+        buttonText: "Gerenciar",
+        action: 'navigateTo',
+        page: 'Integrações'
     }
 ];
 
@@ -37,13 +52,16 @@ const cardVariants: Variants = {
 
 interface ConfiguracoesProps {
     onOpenPriceTableModal: () => void;
+    setActivePage: (page: string) => void;
 }
 
-const Configuracoes: React.FC<ConfiguracoesProps> = ({ onOpenPriceTableModal }) => {
+const Configuracoes: React.FC<ConfiguracoesProps> = ({ onOpenPriceTableModal, setActivePage }) => {
     
-    const handleCardClick = (action?: string) => {
+    const handleCardClick = (action: 'openPriceTable' | 'navigateTo', page?: string) => {
         if (action === 'openPriceTable') {
             onOpenPriceTableModal();
+        } else if (action === 'navigateTo' && page) {
+            setActivePage(page);
         }
     };
 
@@ -74,7 +92,7 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onOpenPriceTableModal }) 
                             </div>
                             <p className="text-neutral-text-secondary text-sm flex-grow mb-6">{card.description}</p>
                             <button 
-                                onClick={() => handleCardClick(card.action)}
+                                onClick={() => handleCardClick(card.action, card.page)}
                                 className="w-full text-center mt-auto px-4 py-2 text-sm font-semibold bg-neutral-card-alt text-neutral-text-primary rounded-lg hover:bg-gray-200 border border-gray-300 transition-colors"
                             >
                                 {card.buttonText}

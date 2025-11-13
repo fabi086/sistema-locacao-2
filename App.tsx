@@ -21,6 +21,7 @@ import PriceTableModal from './components/PriceTableModal';
 import ScheduleDeliveryModal from './components/ScheduleDeliveryModal';
 import AddMaintenanceModal from './components/AddMaintenanceModal';
 import QuotePrintModal from './components/QuotePrintModal';
+import Login from './components/Login';
 
 const initialEquipment: Equipment[] = [
     { id: 'EQP-001', name: 'Escavadeira CAT 320D', category: 'Escavadeiras', serialNumber: 'CAT-12345', status: 'Disponível', location: 'Pátio A', pricing: { daily: 1200, weekly: 7000, biweekly: 13000, monthly: 24000 } },
@@ -71,10 +72,10 @@ const navItems = [
     { icon: Users, label: 'Usuários' }
 ];
 
-type Page = typeof navItems[number]['label'] | 'Configurações';
+type Page = typeof navItems[number]['label'] | 'Configurações' | 'Integrações';
 
 
-const Sidebar: React.FC<{ activePage: Page; setActivePage: (page: Page) => void }> = ({ activePage, setActivePage }) => {
+const Sidebar: React.FC<{ activePage: Page; setActivePage: (page: Page) => void; onLogout: () => void; }> = ({ activePage, setActivePage, onLogout }) => {
     return (
         <aside className="w-64 bg-primary text-white flex flex-col fixed h-full shadow-lg">
             <div className="p-6 flex items-center justify-between">
@@ -116,10 +117,10 @@ const Sidebar: React.FC<{ activePage: Page; setActivePage: (page: Page) => void 
                     <Settings size={20} />
                     <span>Configurações</span>
                 </button>
-                <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-primary-dark/50 text-gray-200 text-sm font-semibold transition-colors">
+                <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-primary-dark/50 text-gray-200 text-sm font-semibold transition-colors text-left">
                     <LogOut size={20} />
                     <span>Sair</span>
-                </a>
+                </button>
             </div>
         </aside>
     );
@@ -127,6 +128,7 @@ const Sidebar: React.FC<{ activePage: Page; setActivePage: (page: Page) => void 
 
 
 const App: React.FC = () => {
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [activePage, setActivePage] = useState<Page>('Agenda');
     
     // Client State Management
@@ -430,6 +432,15 @@ const App: React.FC = () => {
     const handleOpenPrintModal = (order: RentalOrder) => setOrderToPrint(order);
     const handleClosePrintModal = () => setOrderToPrint(null);
 
+    // Auth Handlers
+    const handleLoginSuccess = () => {
+        setIsAuthenticated(true);
+    };
+
+    const handleLogout = () => {
+        setIsAuthenticated(false);
+    };
+
 
     const renderContent = () => {
         switch(activePage) {
@@ -480,16 +491,19 @@ const App: React.FC = () => {
                             onDelete={handleOpenDeleteUserModal}
                         />;
             case 'Configurações':
-                return <Configuracoes onOpenPriceTableModal={handleOpenPriceTableModal} />;
+                return <Configuracoes onOpenPriceTableModal={handleOpenPriceTableModal} setActivePage={setActivePage} />;
             default:
                 return <PlaceholderPage title={activePage} />;
         }
     };
     
+    if (!isAuthenticated) {
+        return <Login onLoginSuccess={handleLoginSuccess} />;
+    }
 
     return (
         <div className="flex h-screen font-sans text-neutral-text-primary bg-neutral-bg">
-            <Sidebar activePage={activePage} setActivePage={setActivePage} />
+            <Sidebar activePage={activePage} setActivePage={setActivePage} onLogout={handleLogout} />
             <main className="flex-1 ml-64 overflow-y-auto">
                 {renderContent()}
                 <AnimatePresence>
