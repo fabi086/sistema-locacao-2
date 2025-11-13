@@ -66,9 +66,9 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onOpenPriceTableModal, se
     };
 
     return (
-        <div className="p-6 md:p-8">
+        <div className="p-4 sm:p-6 md:p-8">
             <header className="mb-8">
-                <h2 className="text-3xl font-bold text-neutral-text-primary">Configurações</h2>
+                <h2 className="text-2xl sm:text-3xl font-bold text-neutral-text-primary">Configurações</h2>
                 <p className="text-neutral-text-secondary mt-1">Personalize o sistema para atender às suas necessidades.</p>
             </header>
 

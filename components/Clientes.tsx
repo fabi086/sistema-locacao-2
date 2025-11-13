@@ -44,10 +44,10 @@ const Clientes: React.FC<ClientesProps> = ({ clients, onOpenAddClientModal, onEd
     };
 
     return (
-        <div className="p-6 md:p-8">
+        <div className="p-4 sm:p-6 md:p-8">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
                 <div>
-                    <h2 className="text-3xl font-bold text-neutral-text-primary">Clientes</h2>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-neutral-text-primary">Clientes</h2>
                     <p className="text-neutral-text-secondary mt-1">Gerencie sua base de clientes.</p>
                 </div>
                 <button onClick={onOpenAddClientModal} className="flex items-center gap-2 text-sm font-semibold bg-secondary text-white px-4 py-2 rounded-lg shadow-sm hover:bg-secondary-dark transition-colors mt-4 md:mt-0">

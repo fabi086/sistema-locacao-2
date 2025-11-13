@@ -98,7 +98,7 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
     };
     
     const renderPipelineView = () => (
-        <div className="flex-1 overflow-x-auto p-4 md:p-6 bg-neutral-bg">
+        <div className="flex-1 overflow-x-auto p-4 sm:p-6 bg-neutral-bg">
             <div className="flex space-x-4 min-w-max h-full">
                 {columns.map(status => (
                     <div key={status} id={status} className="w-80 bg-neutral-card-alt rounded-lg flex flex-col h-full">
@@ -139,7 +139,7 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
         };
 
         return (
-             <div className="p-6 md:p-8">
+             <div className="p-4 sm:p-6 md:p-8">
                 <div className="bg-neutral-card p-4 rounded-lg shadow-sm mb-6 flex flex-col md:flex-row gap-4">
                     <div className="relative flex-grow">
                         <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
@@ -232,9 +232,9 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
             </AnimatePresence>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                 <div className="flex flex-col h-full">
-                    <header className="p-6 md:p-8 flex-col md:flex-row flex justify-between items-start md:items-center border-b border-gray-200 bg-white">
+                    <header className="p-4 sm:p-6 md:p-8 flex-col md:flex-row flex justify-between items-start md:items-center border-b border-gray-200 bg-white">
                         <div>
-                            <h2 className="text-3xl font-bold text-neutral-text-primary">Locação & Orçamentos</h2>
+                            <h2 className="text-2xl sm:text-3xl font-bold text-neutral-text-primary">Locação & Orçamentos</h2>
                             <p className="text-neutral-text-secondary mt-1">Gerencie o ciclo de vida completo dos seus pedidos.</p>
                         </div>
                         <div className="flex items-center gap-4 mt-4 md:mt-0">

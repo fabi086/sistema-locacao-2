@@ -62,10 +62,10 @@ const Equipamentos: React.FC<EquipamentosProps> = ({ equipment, onOpenQuoteModal
             <AnimatePresence>
                  {selectedEquipment && <EquipmentDetailDrawer equipment={selectedEquipment} onClose={() => setSelectedEquipment(null)} onOpenQuoteModal={onOpenQuoteModal} />}
             </AnimatePresence>
-            <div className="p-6 md:p-8">
+            <div className="p-4 sm:p-6 md:p-8">
                 <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
                     <div>
-                        <h2 className="text-3xl font-bold text-neutral-text-primary">Inventário de Equipamentos</h2>
+                        <h2 className="text-2xl sm:text-3xl font-bold text-neutral-text-primary">Inventário de Equipamentos</h2>
                         <p className="text-neutral-text-secondary mt-1">Gerencie e monitore sua frota.</p>
                     </div>
                     <button onClick={onAdd} className="flex items-center gap-2 text-sm font-semibold bg-secondary text-white px-4 py-2 rounded-lg shadow-sm hover:bg-secondary-dark transition-colors mt-4 md:mt-0">
@@ -111,20 +111,20 @@ const Equipamentos: React.FC<EquipamentosProps> = ({ equipment, onOpenQuoteModal
                 </div>
 
                 <motion.div 
-                    className="bg-neutral-card rounded-lg shadow-sm overflow-x-auto"
+                    className="bg-neutral-card rounded-lg shadow-sm overflow-hidden"
                     initial="hidden"
                     animate="visible"
                     variants={containerVariants}
                 >
-                    <table className="w-full text-left text-sm">
+                    <table className="w-full text-left text-sm table-fixed">
                         <thead className="bg-neutral-card-alt text-neutral-text-secondary font-semibold">
                             <tr>
-                                <th className="p-4">Nome</th>
+                                <th className="p-4 w-[35%]">Nome</th>
                                 <th className="p-4">Categoria</th>
                                 <th className="p-4 hidden md:table-cell">N° de Série</th>
                                 <th className="p-4">Status</th>
                                 <th className="p-4 hidden sm:table-cell">Localização</th>
-                                <th className="p-4 text-center">Ações</th>
+                                <th className="p-4 text-center w-[80px]">Ações</th>
                             </tr>
                         </thead>
                         <motion.tbody variants={containerVariants}>
@@ -134,8 +134,8 @@ const Equipamentos: React.FC<EquipamentosProps> = ({ equipment, onOpenQuoteModal
                                     className="border-b border-neutral-card-alt hover:bg-neutral-bg" 
                                     variants={itemVariants}
                                 >
-                                    <td className="p-4 font-semibold text-neutral-text-primary cursor-pointer" onClick={() => handleRowClick(eq)}>{eq.name}</td>
-                                    <td className="p-4 text-neutral-text-secondary cursor-pointer" onClick={() => handleRowClick(eq)}>{eq.category}</td>
+                                    <td className="p-4 font-semibold text-neutral-text-primary cursor-pointer break-words" onClick={() => handleRowClick(eq)}>{eq.name}</td>
+                                    <td className="p-4 text-neutral-text-secondary cursor-pointer break-words" onClick={() => handleRowClick(eq)}>{eq.category}</td>
                                     <td className="p-4 text-neutral-text-secondary hidden md:table-cell cursor-pointer" onClick={() => handleRowClick(eq)}>{eq.serialNumber}</td>
                                     <td className="p-4 cursor-pointer" onClick={() => handleRowClick(eq)}><StatusBadge status={eq.status} /></td>
                                     <td className="p-4 text-neutral-text-secondary hidden sm:table-cell cursor-pointer" onClick={() => handleRowClick(eq)}>{eq.location}</td>

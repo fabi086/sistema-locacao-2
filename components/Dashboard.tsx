@@ -114,10 +114,10 @@ const Dashboard: React.FC<{ onOpenQuoteModal: (equipment?: Equipment | null) => 
     };
 
     return (
-        <div className="p-6 md:p-8">
+        <div className="p-4 sm:p-6 md:p-8">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
                 <div>
-                    <h2 className="text-3xl font-bold text-neutral-text-primary">Dashboard</h2>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-neutral-text-primary">Dashboard</h2>
                     <p className="text-neutral-text-secondary mt-1">Visão geral da sua operação.</p>
                 </div>
                 <div className="flex items-center gap-4 mt-4 md:mt-0">

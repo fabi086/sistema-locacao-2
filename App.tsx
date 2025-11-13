@@ -12,7 +12,7 @@ import Manutencao from './components/Manutencao';
 import Usuarios from './components/Usuarios';
 import AddClientModal from './components/AddClientModal';
 import { Equipment, Customer, User, RentalOrder, RentalStatus, MaintenanceOrder, MaintenanceStatus } from './types';
-import { Truck, Wrench, FileText, Users, Building, Calendar, Settings, HardHat, LogOut, ChevronLeft, LayoutDashboard } from 'lucide-react';
+import { Truck, Wrench, FileText, Users, Building, Calendar, Settings, HardHat, LogOut, ChevronLeft, LayoutDashboard, Menu } from 'lucide-react';
 import AddEquipmentModal from './components/AddEquipmentModal';
 import ConfirmationModal from './components/ConfirmationModal';
 import Configuracoes from './components/Configuracoes';
@@ -75,54 +75,85 @@ const navItems = [
 type Page = typeof navItems[number]['label'] | 'Configurações' | 'Integrações';
 
 
-const Sidebar: React.FC<{ activePage: Page; setActivePage: (page: Page) => void; onLogout: () => void; }> = ({ activePage, setActivePage, onLogout }) => {
+const Sidebar: React.FC<{ 
+    activePage: Page; 
+    setActivePage: (page: Page) => void; 
+    onLogout: () => void; 
+    isOpen: boolean; 
+    setIsOpen: (isOpen: boolean) => void; 
+}> = ({ activePage, setActivePage, onLogout, isOpen, setIsOpen }) => {
+    
+    const handleNavigation = (page: Page) => {
+        setActivePage(page);
+        setIsOpen(false); // Close sidebar on navigation
+    };
+    
+    const handleLogoutClick = () => {
+        onLogout();
+        setIsOpen(false);
+    };
+
     return (
-        <aside className="w-64 bg-primary text-white flex flex-col fixed h-full shadow-lg">
-            <div className="p-6 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                     <HardHat size={28} className="text-secondary"/>
-                     <h1 className="text-xl font-bold">ConstructFlow</h1>
+        <>
+            {/* Overlay for mobile */}
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        className="fixed inset-0 bg-black/60 z-30 md:hidden"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setIsOpen(false)}
+                    />
+                )}
+            </AnimatePresence>
+             <aside className={`w-64 bg-primary text-white flex flex-col fixed inset-y-0 left-0 shadow-lg z-40 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+                <div className="p-6 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                         <HardHat size={28} className="text-secondary"/>
+                         <h1 className="text-xl font-bold">ConstructFlow</h1>
+                    </div>
+                     <button className="p-1 rounded-full bg-primary-dark/50 hover:bg-primary-dark transition-colors md:hidden" onClick={() => setIsOpen(false)} aria-label="Fechar menu">
+                        <ChevronLeft size={16} />
+                     </button>
                 </div>
-                 <button className="p-1 rounded-full bg-primary-dark/50 hover:bg-primary-dark transition-colors">
-                    <ChevronLeft size={16} />
-                 </button>
-            </div>
-            <nav className="flex-1 px-4 py-2 space-y-1">
-                {navItems.map((item) => (
-                    <button 
-                        key={item.label} 
-                        onClick={() => setActivePage(item.label as Page)}
+                <nav className="flex-1 px-4 py-2 space-y-1">
+                    {navItems.map((item) => (
+                        <button 
+                            key={item.label} 
+                            onClick={() => handleNavigation(item.label as Page)}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-colors text-left ${
+                                activePage === item.label
+                                ? 'bg-secondary text-primary-dark' 
+                                : 'hover:bg-primary-dark/50 text-gray-200'
+                            }`}
+                            aria-current={activePage === item.label ? 'page' : undefined}
+                        >
+                            <item.icon size={20} />
+                            <span>{item.label}</span>
+                        </button>
+                    ))}
+                </nav>
+                <div className="p-4 border-t border-primary-dark/50">
+                     <button 
+                        onClick={() => handleNavigation('Configurações')}
                         className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-colors text-left ${
-                            activePage === item.label
+                            activePage === 'Configurações'
                             ? 'bg-secondary text-primary-dark' 
                             : 'hover:bg-primary-dark/50 text-gray-200'
                         }`}
-                        aria-current={activePage === item.label ? 'page' : undefined}
+                        aria-current={activePage === 'Configurações' ? 'page' : undefined}
                     >
-                        <item.icon size={20} />
-                        <span>{item.label}</span>
+                        <Settings size={20} />
+                        <span>Configurações</span>
                     </button>
-                ))}
-            </nav>
-            <div className="p-4 border-t border-primary-dark/50">
-                 <button 
-                    onClick={() => setActivePage('Configurações')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-colors text-left ${
-                        activePage === 'Configurações'
-                        ? 'bg-secondary text-primary-dark' 
-                        : 'hover:bg-primary-dark/50 text-gray-200'
-                    }`}
-                    aria-current={activePage === 'Configurações' ? 'page' : undefined}
-                >
-                    <Settings size={20} />
-                    <span>Configurações</span>
-                </button>
-                <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-primary-dark/50 text-gray-200 text-sm font-semibold transition-colors text-left">
-                    <LogOut size={20} />
-                    <span>Sair</span>
-                </button>
-            </div>
-        </aside>
+                    <button onClick={handleLogoutClick} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-primary-dark/50 text-gray-200 text-sm font-semibold transition-colors text-left">
+                        <LogOut size={20} />
+                        <span>Sair</span>
+                    </button>
+                </div>
+            </aside>
+        </>
     );
 };
 
@@ -130,6 +161,7 @@ const Sidebar: React.FC<{ activePage: Page; setActivePage: (page: Page) => void;
 const App: React.FC = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [activePage, setActivePage] = useState<Page>('Agenda');
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     
     // Client State Management
     const [clients, setClients] = useState<Customer[]>(initialClients);
@@ -502,9 +534,26 @@ const App: React.FC = () => {
     }
 
     return (
-        <div className="flex h-screen font-sans text-neutral-text-primary bg-neutral-bg">
-            <Sidebar activePage={activePage} setActivePage={setActivePage} onLogout={handleLogout} />
-            <main className="flex-1 ml-64 overflow-y-auto">
+        <div className="h-screen font-sans text-neutral-text-primary bg-neutral-bg">
+            <Sidebar 
+                activePage={activePage} 
+                setActivePage={setActivePage} 
+                onLogout={handleLogout} 
+                isOpen={isSidebarOpen}
+                setIsOpen={setIsSidebarOpen}
+            />
+            <main className="flex-1 md:ml-64 overflow-y-auto">
+                 {/* Mobile Header */}
+                <header className="sticky top-0 bg-white/80 backdrop-blur-sm p-4 border-b md:hidden flex items-center justify-between z-20">
+                    <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2" aria-label="Abrir menu">
+                        <Menu size={24} className="text-neutral-text-primary" />
+                    </button>
+                    <div className="flex items-center gap-2">
+                         <HardHat size={24} className="text-secondary"/>
+                         <h1 className="text-lg font-bold text-primary">ConstructFlow</h1>
+                    </div>
+                    <div className="w-8"></div> {/* Spacer to balance the header */}
+                </header>
                 {renderContent()}
                 <AnimatePresence>
                     {isAddEditOrderModalOpen && <QuoteModal 

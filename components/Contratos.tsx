@@ -50,10 +50,10 @@ const Contratos: React.FC = () => {
     };
 
     return (
-        <div className="p-6 md:p-8">
+        <div className="p-4 sm:p-6 md:p-8">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
                 <div>
-                    <h2 className="text-3xl font-bold text-neutral-text-primary">Contratos</h2>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-neutral-text-primary">Contratos</h2>
                     <p className="text-neutral-text-secondary mt-1">Gerencie seus acordos e vigências.</p>
                 </div>
             </header>

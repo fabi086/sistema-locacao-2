@@ -99,10 +99,10 @@ const Agenda: React.FC<AgendaProps> = ({ rentalOrders, maintenanceOrders }) => {
     const goToToday = () => setCurrentDate(new Date());
 
     return (
-        <div className="p-6 md:p-8 flex flex-col h-full">
+        <div className="p-4 sm:p-6 md:p-8 flex flex-col h-[calc(100vh-65px)] md:h-full">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
                 <div>
-                    <h2 className="text-3xl font-bold text-neutral-text-primary">Agenda</h2>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-neutral-text-primary">Agenda</h2>
                     <p className="text-neutral-text-secondary mt-1">Visualize entregas, coletas e manutenções.</p>
                 </div>
                 <div className="flex items-center gap-4 mt-4 md:mt-0">
@@ -119,9 +119,10 @@ const Agenda: React.FC<AgendaProps> = ({ rentalOrders, maintenanceOrders }) => {
 
             <div className="flex-1 bg-neutral-card rounded-lg shadow-sm overflow-hidden flex flex-col">
                 <div className="grid grid-cols-7 border-b border-gray-200">
-                    {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map(day => (
-                        <div key={day} className="p-3 text-center text-sm font-semibold text-neutral-text-secondary">
-                            {day}
+                    {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(day => (
+                        <div key={day} className="p-3 text-center text-xs sm:text-sm font-semibold text-neutral-text-secondary">
+                           <span className="hidden sm:inline">{['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].indexOf(day)]}</span>
+                           <span className="sm:hidden">{day}</span>
                         </div>
                     ))}
                 </div>

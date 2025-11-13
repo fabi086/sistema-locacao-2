@@ -50,10 +50,10 @@ const Usuarios: React.FC<UsuariosProps> = ({ users, onAdd, onEdit, onDelete }) =
     };
 
     return (
-        <div className="p-6 md:p-8">
+        <div className="p-4 sm:p-6 md:p-8">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
                 <div>
-                    <h2 className="text-3xl font-bold text-neutral-text-primary">Usuários</h2>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-neutral-text-primary">Usuários</h2>
                     <p className="text-neutral-text-secondary mt-1">Gerencie os acessos e permissões da equipe.</p>
                 </div>
                  <button onClick={onAdd} className="flex items-center gap-2 text-sm font-semibold bg-secondary text-white px-4 py-2 rounded-lg shadow-sm hover:bg-secondary-dark transition-colors mt-4 md:mt-0">
