@@ -1,25 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 import Dashboard from './components/Dashboard';
 import PlaceholderPage from './components/PlaceholderPage';
 import Equipamentos from './components/Equipamentos';
 import QuoteModal from './components/QuoteModal';
 import Locacao from './components/Locacao';
 import Contratos from './components/Contratos';
-import Orcamentos from './components/Orcamentos';
 import Clientes from './components/Clientes';
 import Agenda from './components/Agenda';
 import Manutencao from './components/Manutencao';
 import Usuarios from './components/Usuarios';
 import AddClientModal from './components/AddClientModal';
-import { Equipment, Customer, RentalHistoryItem, MaintenanceRecord, User, Quote, QuoteStatus, RentalOrder, RentalStatus } from './types';
-import { Truck, Wrench, FileText, Users, Building, Calendar, Settings, HardHat, LogOut, ChevronLeft, LayoutDashboard, FilePlus2 } from 'lucide-react';
+import { Equipment, Customer, User, RentalOrder, RentalStatus } from './types';
+import { Truck, Wrench, FileText, Users, Building, Calendar, Settings, HardHat, LogOut, ChevronLeft, LayoutDashboard } from 'lucide-react';
 import AddEquipmentModal from './components/AddEquipmentModal';
 import ConfirmationModal from './components/ConfirmationModal';
 import Configuracoes from './components/Configuracoes';
 import AddUserModal from './components/AddUserModal';
 import PriceTableModal from './components/PriceTableModal';
 import ScheduleDeliveryModal from './components/ScheduleDeliveryModal';
+import { LoaderCircle } from 'lucide-react';
+
 
 const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard' },
@@ -33,67 +36,6 @@ const navItems = [
 ];
 
 type Page = typeof navItems[number]['label'] | 'Configurações';
-
-const customerData: Customer[] = [
-    { id: 'CLI-004', name: 'maria', document: '123.456.789-10', email: 'fabio.net.sp@gmail.com', phone: '11966887073', address: 'rua manucaia 110', status: 'Ativo' },
-    { id: 'CLI-001', name: 'Construtora Alfa', document: '12.345.678/0001-99', email: 'contato@alfa.com', phone: '(11) 98765-4321', address: 'Rua das Flores, 123, São Paulo, SP', status: 'Ativo' },
-    { id: 'CLI-002', name: 'Engenharia Beta', document: '98.765.432/0001-11', email: 'financeiro@beta.eng.br', phone: '(21) 91234-5678', address: 'Avenida Principal, 456, Rio de Janeiro, RJ', status: 'Ativo' },
-    { id: 'CLI-003', name: 'Obras Gamma', document: '45.678.912/0001-33', email: 'compras@gamma.com.br', phone: '(31) 95678-1234', address: 'Praça Central, 789, Belo Horizonte, MG', status: 'Inativo' },
-];
-
-const rentalHistoryData: RentalHistoryItem[] = [
-    { id: 'RENT-001', client: 'Construtora Alfa', startDate: '2024-06-05', endDate: '2024-06-15' },
-    { id: 'RENT-002', client: 'Engenharia Beta', startDate: '2024-07-20', endDate: '2024-08-05' },
-    { id: 'RENT-003', client: 'Obras Gamma', startDate: '2024-05-10', endDate: '2024-05-25' },
-];
-
-const maintenanceHistoryData: MaintenanceRecord[] = [
-    { id: 'MAINT-001', type: 'Preventiva', date: '2024-06-25', description: 'Troca de óleo e filtros', cost: 850.00 },
-    { id: 'MAINT-002', type: 'Corretiva', date: '2024-07-10', description: 'Reparo no sistema hidráulico', cost: 2500.00 },
-];
-
-const initialEquipmentData: Equipment[] = [
-    { id: 'EQP-001', name: 'Escavadeira CAT 320D', category: 'Escavadeiras', serialNumber: 'CAT320D-12345', status: 'Disponível', location: 'Pátio A', rentalHistory: rentalHistoryData, maintenanceHistory: maintenanceHistoryData, pricing: { daily: 1200, weekly: 7000, biweekly: 13000 } },
-    { id: 'EQP-002', name: 'Betoneira CSM 400L', category: 'Betoneiras', serialNumber: 'CSM400-67890', status: 'Em Uso', location: 'Obra Central', pricing: { daily: 150, weekly: 900, biweekly: 1600 } },
-    { id: 'EQP-003', name: 'Guindaste Liebherr LTM 1050', category: 'Guindastes', serialNumber: 'LTM1050-11223', status: 'Manutenção', location: 'Oficina', pricing: { daily: 2500, weekly: 15000, biweekly: 28000 } },
-    { id: 'EQP-004', name: 'Andaimes Tubulares (Lote 20)', category: 'Andaimes', serialNumber: 'AND-L20-33445', status: 'Disponível', location: 'Pátio B', pricing: { daily: 50, weekly: 300, biweekly: 550 } },
-    { id: 'EQP-005', name: 'Escavadeira Komatsu PC200', category: 'Escavadeiras', serialNumber: 'KPC200-54321', status: 'Disponível', location: 'Pátio A', rentalHistory: [{id: 'RENT-010', client: 'Projetos Delta', startDate: '2024-07-01', endDate: '2024-07-08'}], pricing: { daily: 1150, weekly: 6800, biweekly: 12500 } },
-    { id: 'EQP-006', name: 'Betoneira Menegotti 150L', category: 'Betoneiras', serialNumber: 'MEN150-09876', status: 'Manutenção', location: 'Oficina', maintenanceHistory: [{ id: 'MAINT-005', type: 'Preventiva', date: '2024-07-22', description: 'Revisão geral', cost: 1200.00 }], pricing: { daily: 100, weekly: 600, biweekly: 1100 } },
-];
-
-const userData: User[] = [
-    { id: 'USR-001', name: 'Admin Geral', email: 'admin@constructflow.com', role: 'Admin', status: 'Ativo', lastLogin: '2024-08-01' },
-    { id: 'USR-002', name: 'João Silva', email: 'joao.silva@constructflow.com', role: 'Operador', status: 'Ativo', lastLogin: '2024-07-31' },
-    { id: 'USR-003', name: 'Maria Souza', email: 'maria.souza@constructflow.com', role: 'Comercial', status: 'Ativo', lastLogin: '2024-08-01' },
-    { id: 'USR-004', name: 'Carlos Pereira', email: 'carlos.p@constructflow.com', role: 'Logística', status: 'Inativo', lastLogin: '2024-06-15' },
-    { id: 'USR-005', name: 'Ana Costa', email: 'ana.costa@constructflow.com', role: 'Financeiro', status: 'Ativo', lastLogin: '2024-07-29' },
-    { id: 'USR-006', name: 'Pedro Martins', email: 'pedro.m@constructflow.com', role: 'Operador', status: 'Inativo', lastLogin: '2024-05-20' },
-];
-
-const initialQuoteData: Quote[] = [
-    { id: 'ORC-001', client: 'Construtora Alfa', equipment: 'Escavadeira CAT 320D', startDate: '2024-08-01', endDate: '2024-08-12', createdDate: '2024-07-28', validUntil: '2024-08-12', value: 15000, status: 'Aprovado' },
-    { id: 'ORC-002', client: 'Engenharia Beta', equipment: 'Betoneira CSM 400L', startDate: '2024-08-05', endDate: '2024-08-20', createdDate: '2024-07-25', validUntil: '2024-08-09', value: 2500, status: 'Pendente' },
-    { id: 'ORC-003', client: 'Obras Gamma', equipment: 'Guindaste Liebherr LTM 1050', startDate: '2024-08-10', endDate: '2024-08-28', createdDate: '2024-07-22', validUntil: '2024-08-06', value: 45000, status: 'Recusado' },
-    { id: 'ORC-004', client: 'Projetos Delta', equipment: 'Andaimes Tubulares (Lote 20)', startDate: '2024-08-15', endDate: '2024-09-13', createdDate: '2024-07-29', validUntil: '2024-08-13', value: 7500, status: 'Pendente' },
-];
-
-const otherStageOrdersData: RentalOrder[] = [
-    { id: 'LOC-001-DEMO', client: 'Construtora Alfa', equipment: 'Escavadeira CAT 320D', startDate: '2024-08-01', endDate: '2024-08-15', value: 15000, status: 'Ativo', statusHistory: [ { status: 'Proposta', date: '2024-07-10' }, { status: 'Aprovado', date: '2024-07-12' }, { status: 'Reservado', date: '2024-07-15' }, { status: 'Em Rota', date: '2024-08-01' }, { status: 'Ativo', date: '2024-08-01' }], createdDate: '2024-07-10', validUntil: '2024-07-25', deliveryDate: '2024-08-01' },
-    { id: 'LOC-002-DEMO', client: 'Engenharia Beta', equipment: 'Betoneira CSM 400L', startDate: '2024-08-05', endDate: '2024-08-10', value: 2500, status: 'Reservado', statusHistory: [ { status: 'Proposta', date: '2024-07-20' }, { status: 'Aprovado', date: '2024-07-22' }, { status: 'Reservado', date: '2024-07-23' }], createdDate: '2024-07-20', validUntil: '2024-08-04', deliveryDate: '2024-08-05' },
-    { id: 'LOC-005-DEMO', client: 'Construtora Alfa', equipment: 'Escavadeira Komatsu PC200', startDate: '2024-07-20', endDate: '2024-07-28', value: 9800, status: 'Pendente de Pagamento', statusHistory: [ { status: 'Proposta', date: '2024-07-01' }, { status: 'Aprovado', date: '2024-07-02' }, { status: 'Reservado', date: '2024-07-05' }, { status: 'Em Rota', date: '2024-07-20' }, { status: 'Ativo', date: '2024-07-20' }, { status: 'Concluído', date: '2024-07-28' }, { status: 'Pendente de Pagamento', date: '2024-07-29' } ], createdDate: '2024-07-01', validUntil: '2024-07-16', deliveryDate: '2024-07-20' },
-    { id: 'LOC-006-DEMO', client: 'Engenharia Beta', equipment: 'Betoneira Menegotti 150L', startDate: '2024-08-12', endDate: '2024-08-18', value: 1800, status: 'Ativo', statusHistory: [ { status: 'Proposta', date: '2024-07-25' }, { status: 'Aprovado', date: '2024-07-28' }, { status: 'Reservado', date: '2024-08-01' }, { status: 'Em Rota', date: '2024-08-12' }, { status: 'Ativo', date: '2024-08-12' }], createdDate: '2024-07-25', validUntil: '2024-08-09', deliveryDate: '2024-08-12' },
-];
-
-const initialRentalOrdersData: RentalOrder[] = [
-    ...initialQuoteData
-        .filter(q => q.status !== 'Recusado')
-        .map((q): RentalOrder => ({
-            ...q,
-            status: q.status === 'Pendente' ? 'Proposta' : 'Aprovado',
-            statusHistory: [{ status: q.status === 'Pendente' ? 'Proposta' : 'Aprovado', date: q.createdDate }]
-        })),
-    ...otherStageOrdersData
-];
 
 
 const Sidebar: React.FC<{ activePage: Page; setActivePage: (page: Page) => void }> = ({ activePage, setActivePage }) => {
@@ -147,33 +89,56 @@ const Sidebar: React.FC<{ activePage: Page; setActivePage: (page: Page) => void 
     );
 };
 
+const SupabaseSetupMessage: React.FC = () => (
+    <div className="flex items-center justify-center h-screen bg-neutral-bg text-neutral-text-primary">
+        <div className="text-center p-8 bg-neutral-card rounded-lg shadow-xl max-w-lg mx-4">
+            <h1 className="text-2xl font-bold text-primary mb-4">Configuração do Supabase Necessária</h1>
+            <p className="mb-4 text-neutral-text-secondary">
+                Para que este aplicativo funcione, você precisa conectar seu próprio banco de dados Supabase.
+            </p>
+            <p className="mb-6 text-neutral-text-secondary">
+                Por favor, edite o arquivo <code className="bg-neutral-card-alt px-1 py-0.5 rounded font-mono text-sm text-neutral-text-primary">supabaseClient.ts</code> e substitua os valores de <code className="bg-neutral-card-alt px-1 py-0.5 rounded font-mono text-sm text-neutral-text-primary">supabaseUrl</code> e <code className="bg-neutral-card-alt px-1 py-0.5 rounded font-mono text-sm text-neutral-text-primary">supabaseAnonKey</code> pelas suas credenciais.
+            </p>
+            <a 
+                href="https://supabase.com/dashboard/projects" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-block px-6 py-3 bg-secondary text-white font-semibold rounded-lg hover:bg-secondary-dark transition-colors shadow-sm"
+            >
+                Abrir Dashboard do Supabase
+            </a>
+        </div>
+    </div>
+);
 
-const App: React.FC = () => {
+
+const ConstructFlowApp: React.FC<{ supabase: SupabaseClient }> = ({ supabase }) => {
     const [activePage, setActivePage] = useState<Page>('Locação');
+    const [loading, setLoading] = useState(true);
     
     // Client State Management
-    const [clients, setClients] = useState<Customer[]>(customerData);
+    const [clients, setClients] = useState<Customer[]>([]);
     const [isAddEditClientModalOpen, setAddEditClientModalOpen] = useState(false);
     const [clientToEdit, setClientToEdit] = useState<Customer | null>(null);
     const [isDeleteClientModalOpen, setDeleteClientModalOpen] = useState(false);
     const [clientToDelete, setClientToDelete] = useState<Customer | null>(null);
     
     // Equipment State Management
-    const [allEquipment, setAllEquipment] = useState<Equipment[]>(initialEquipmentData);
+    const [allEquipment, setAllEquipment] = useState<Equipment[]>([]);
     const [isAddEditEquipmentModalOpen, setAddEditEquipmentModalOpen] = useState(false);
     const [equipmentToEdit, setEquipmentToEdit] = useState<Equipment | null>(null);
     const [isDeleteEquipmentModalOpen, setDeleteEquipmentModalOpen] = useState(false);
     const [equipmentToDelete, setEquipmentToDelete] = useState<Equipment | null>(null);
 
     // User State Management
-    const [users, setUsers] = useState<User[]>(userData);
+    const [users, setUsers] = useState<User[]>([]);
     const [isAddEditUserModalOpen, setAddEditUserModalOpen] = useState(false);
     const [userToEdit, setUserToEdit] = useState<User | null>(null);
     const [isDeleteUserModalOpen, setDeleteUserModalOpen] = useState(false);
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
     // Unified Rental Order State Management
-    const [rentalOrders, setRentalOrders] = useState<RentalOrder[]>(initialRentalOrdersData);
+    const [rentalOrders, setRentalOrders] = useState<RentalOrder[]>([]);
     const [isAddEditOrderModalOpen, setAddEditOrderModalOpen] = useState(false);
     const [equipmentForOrder, setEquipmentForOrder] = useState<Equipment | null>(null);
     const [orderToEdit, setOrderToEdit] = useState<RentalOrder | null>(null);
@@ -185,6 +150,41 @@ const App: React.FC = () => {
 
     // Pricing State Management
     const [isPriceTableModalOpen, setPriceTableModalOpen] = useState(false);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const results = await Promise.all([
+                    supabase.from('customers').select('*').order('name', { ascending: true }),
+                    supabase.from('equipment').select('*').order('name', { ascending: true }),
+                    supabase.from('users').select('*').order('name', { ascending: true }),
+                    supabase.from('rental_orders').select('*').order('createdDate', { ascending: false })
+                ]);
+                
+                const [customersRes, equipmentRes, usersRes, ordersRes] = results;
+
+                if (customersRes.error) throw customersRes.error;
+                setClients(customersRes.data || []);
+
+                if (equipmentRes.error) throw equipmentRes.error;
+                setAllEquipment(equipmentRes.data || []);
+
+                if (usersRes.error) throw usersRes.error;
+                setUsers(usersRes.data || []);
+
+                if (ordersRes.error) throw ordersRes.error;
+                setRentalOrders(ordersRes.data || []);
+
+            } catch (error) {
+                console.error("Error fetching initial data:", error);
+                alert("Falha ao carregar dados do banco de dados.");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, [supabase]);
 
 
     const handleOpenOrderModal = (equipment: Equipment | null = null) => {
@@ -216,20 +216,27 @@ const App: React.FC = () => {
         setAddEditClientModalOpen(true);
     };
 
-    const handleSaveClient = (clientData: Omit<Customer, 'id' | 'status'> | Customer) => {
-        if ('id' in clientData && clientData.id) { // Update
-            setClients(prev => prev.map(c => c.id === clientData.id ? clientData : c));
-        } else { // Create
-            const newId = `CLI-${(clients.length + 1).toString().padStart(3, '0')}`;
-            const newClient: Customer = {
-                ...clientData,
-                id: newId,
-                status: 'Ativo',
-            };
-            setClients(prev => [newClient, ...prev]);
+    const handleSaveClient = async (clientData: Omit<Customer, 'id' | 'status'> | Customer) => {
+        try {
+            if ('id' in clientData && clientData.id) { // Update
+                const { data, error } = await supabase.from('customers').update(clientData).eq('id', clientData.id).select().single();
+                if (error) throw error;
+                setClients(prev => prev.map(c => c.id === data.id ? data : c));
+            } else { // Create
+                const maxId = clients.reduce((max, c) => Math.max(max, parseInt(c.id.split('-')[1])), 0);
+                const newId = `CLI-${(maxId + 1).toString().padStart(3, '0')}`;
+                const newClient = { ...clientData, id: newId, status: 'Ativo' };
+                const { data, error } = await supabase.from('customers').insert(newClient).select().single();
+                if (error) throw error;
+                setClients(prev => [data, ...prev]);
+            }
+        } catch (error) {
+            console.error('Error saving client:', error);
+            alert('Falha ao salvar cliente.');
+        } finally {
+            setAddEditClientModalOpen(false);
+            setClientToEdit(null);
         }
-        setAddEditClientModalOpen(false);
-        setClientToEdit(null);
     };
     
     const handleOpenDeleteClientModal = (client: Customer) => {
@@ -237,11 +244,19 @@ const App: React.FC = () => {
         setDeleteClientModalOpen(true);
     };
     
-    const handleDeleteClient = () => {
+    const handleDeleteClient = async () => {
         if (clientToDelete) {
-            setClients(prev => prev.filter(c => c.id !== clientToDelete.id));
-            setDeleteClientModalOpen(false);
-            setClientToDelete(null);
+            try {
+                const { error } = await supabase.from('customers').delete().eq('id', clientToDelete.id);
+                if (error) throw error;
+                setClients(prev => prev.filter(c => c.id !== clientToDelete.id));
+            } catch (error) {
+                console.error('Error deleting client:', error);
+                alert('Falha ao excluir cliente.');
+            } finally {
+                setDeleteClientModalOpen(false);
+                setClientToDelete(null);
+            }
         }
     };
     
@@ -256,20 +271,27 @@ const App: React.FC = () => {
         setAddEditEquipmentModalOpen(true);
     };
     
-    const handleSaveEquipment = (equipmentData: Omit<Equipment, 'id'> | Equipment) => {
-        if ('id' in equipmentData && equipmentData.id) { // Update
-            setAllEquipment(prev => prev.map(eq => eq.id === (equipmentData as Equipment).id ? (equipmentData as Equipment) : eq));
-        } else { // Create
-            const newId = `EQP-${(allEquipment.length + 1).toString().padStart(3, '0')}`;
-            const newEquipment: Equipment = {
-                ...(equipmentData as Omit<Equipment, 'id'>),
-                id: newId,
-                status: 'Disponível', // Default status
-            };
-            setAllEquipment(prev => [newEquipment, ...prev]);
+    const handleSaveEquipment = async (equipmentData: Omit<Equipment, 'id'> | Equipment) => {
+        try {
+            if ('id' in equipmentData && equipmentData.id) { // Update
+                const { data, error } = await supabase.from('equipment').update(equipmentData).eq('id', equipmentData.id).select().single();
+                if (error) throw error;
+                setAllEquipment(prev => prev.map(eq => eq.id === data.id ? data : eq));
+            } else { // Create
+                const maxId = allEquipment.reduce((max, eq) => Math.max(max, parseInt(eq.id.split('-')[1])), 0);
+                const newId = `EQP-${(maxId + 1).toString().padStart(3, '0')}`;
+                const newEquipment = { ...equipmentData, id: newId, status: 'Disponível' };
+                const { data, error } = await supabase.from('equipment').insert(newEquipment).select().single();
+                if (error) throw error;
+                setAllEquipment(prev => [data, ...prev]);
+            }
+        } catch (error) {
+             console.error('Error saving equipment:', error);
+            alert('Falha ao salvar equipamento.');
+        } finally {
+            setAddEditEquipmentModalOpen(false);
+            setEquipmentToEdit(null);
         }
-        setAddEditEquipmentModalOpen(false);
-        setEquipmentToEdit(null);
     };
 
     const handleOpenDeleteEquipmentModal = (equipment: Equipment) => {
@@ -277,11 +299,19 @@ const App: React.FC = () => {
         setDeleteEquipmentModalOpen(true);
     };
 
-    const handleDeleteEquipment = () => {
+    const handleDeleteEquipment = async () => {
         if (equipmentToDelete) {
-            setAllEquipment(prev => prev.filter(eq => eq.id !== equipmentToDelete.id));
-            setDeleteEquipmentModalOpen(false);
-            setEquipmentToDelete(null);
+            try {
+                 const { error } = await supabase.from('equipment').delete().eq('id', equipmentToDelete.id);
+                 if (error) throw error;
+                 setAllEquipment(prev => prev.filter(eq => eq.id !== equipmentToDelete.id));
+            } catch (error) {
+                 console.error('Error deleting equipment:', error);
+                alert('Falha ao excluir equipamento.');
+            } finally {
+                setDeleteEquipmentModalOpen(false);
+                setEquipmentToDelete(null);
+            }
         }
     };
 
@@ -296,20 +326,27 @@ const App: React.FC = () => {
         setAddEditUserModalOpen(true);
     };
 
-    const handleSaveUser = (userData: Omit<User, 'id' | 'lastLogin'> | User) => {
-        if ('id' in userData && userData.id) { // Update
-            setUsers(prev => prev.map(u => u.id === userData.id ? userData : u));
-        } else { // Create
-            const newId = `USR-${(users.length + 1).toString().padStart(3, '0')}`;
-            const newUser: User = {
-                ...userData,
-                id: newId,
-                lastLogin: new Date().toISOString().split('T')[0],
-            };
-            setUsers(prev => [newUser, ...prev]);
+    const handleSaveUser = async (userData: Omit<User, 'id' | 'lastLogin'> | User) => {
+        try {
+            if ('id' in userData && userData.id) { // Update
+                const { data, error } = await supabase.from('users').update(userData).eq('id', userData.id).select().single();
+                if (error) throw error;
+                setUsers(prev => prev.map(u => u.id === data.id ? data : u));
+            } else { // Create
+                 const maxId = users.reduce((max, u) => Math.max(max, parseInt(u.id.split('-')[1])), 0);
+                 const newId = `USR-${(maxId + 1).toString().padStart(3, '0')}`;
+                 const newUser = { ...userData, id: newId, lastLogin: new Date().toISOString() };
+                 const { data, error } = await supabase.from('users').insert(newUser).select().single();
+                 if (error) throw error;
+                 setUsers(prev => [data, ...prev]);
+            }
+        } catch(error) {
+             console.error('Error saving user:', error);
+            alert('Falha ao salvar usuário.');
+        } finally {
+             setAddEditUserModalOpen(false);
+            setUserToEdit(null);
         }
-        setAddEditUserModalOpen(false);
-        setUserToEdit(null);
     };
     
     const handleOpenDeleteUserModal = (user: User) => {
@@ -317,41 +354,68 @@ const App: React.FC = () => {
         setDeleteUserModalOpen(true);
     };
     
-    const handleDeleteUser = () => {
+    const handleDeleteUser = async () => {
         if (userToDelete) {
-            setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
-            setDeleteUserModalOpen(false);
-            setUserToDelete(null);
+            try {
+                 const { error } = await supabase.from('users').delete().eq('id', userToDelete.id);
+                 if (error) throw error;
+                 setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
+            } catch (error) {
+                 console.error('Error deleting user:', error);
+                alert('Falha ao excluir usuário.');
+            } finally {
+                setDeleteUserModalOpen(false);
+                setUserToDelete(null);
+            }
         }
     };
     
     // Pricing Handlers
     const handleOpenPriceTableModal = () => setPriceTableModalOpen(true);
 
-    const handleSavePrices = (updatedEquipment: Equipment[]) => {
-        setAllEquipment(updatedEquipment);
-        setPriceTableModalOpen(false);
+    const handleSavePrices = async (updatedEquipmentList: Equipment[]) => {
+       try {
+            const updatePromises = updatedEquipmentList.map(eq =>
+                supabase.from('equipment').update({ pricing: eq.pricing }).eq('id', eq.id)
+            );
+            const results = await Promise.all(updatePromises);
+            const firstError = results.find(res => res.error);
+            if (firstError) throw firstError.error;
+            
+            setAllEquipment(updatedEquipmentList);
+            setPriceTableModalOpen(false);
+        } catch (error) {
+            console.error('Error saving prices:', error);
+            alert('Falha ao salvar preços.');
+        }
     };
 
     // Rental Order Handlers
-    const handleSaveOrder = (orderData: Omit<RentalOrder, 'id' | 'status' | 'statusHistory'> | RentalOrder) => {
-        if ('id' in orderData && orderData.id) { // Update
-            setRentalOrders(prev => prev.map(o => o.id === orderData.id ? orderData as RentalOrder : o));
-        } else { // Create
-            const maxIdNum = rentalOrders.reduce((max, q) => {
-                const num = parseInt(q.id.split('-')[1]);
-                return isNaN(num) ? max : Math.max(num, max);
-            }, 0);
-            const newId = `ORC-${(maxIdNum + 1).toString().padStart(3, '0')}`;
-            const newOrder: RentalOrder = {
-                ...(orderData as Omit<RentalOrder, 'id' | 'status' | 'statusHistory'>),
-                id: newId,
-                status: 'Proposta',
-                statusHistory: [{ status: 'Proposta', date: orderData.createdDate }]
-            };
-            setRentalOrders(prev => [newOrder, ...prev]);
+    const handleSaveOrder = async (orderData: Omit<RentalOrder, 'id' | 'status' | 'statusHistory'> | RentalOrder) => {
+        try {
+            if ('id' in orderData && orderData.id) { // Update
+                const { data, error } = await supabase.from('rental_orders').update(orderData).eq('id', orderData.id).select().single();
+                if (error) throw error;
+                setRentalOrders(prev => prev.map(o => o.id === data.id ? data : o));
+            } else { // Create
+                const maxId = rentalOrders.reduce((max, q) => Math.max(max, parseInt(q.id.split('-')[1] || '0')), 0);
+                const newId = `ORC-${(maxId + 1).toString().padStart(3, '0')}`;
+                const newOrder: Omit<RentalOrder, 'deliveryDate'> = {
+                    ...orderData,
+                    id: newId,
+                    status: 'Proposta',
+                    statusHistory: [{ status: 'Proposta', date: orderData.createdDate }]
+                };
+                const { data, error } = await supabase.from('rental_orders').insert(newOrder).select().single();
+                if (error) throw error;
+                setRentalOrders(prev => [data, ...prev]);
+            }
+        } catch (error) {
+            console.error('Error saving order:', error);
+            alert('Falha ao salvar pedido.');
+        } finally {
+            handleCloseOrderModal();
         }
-        handleCloseOrderModal();
     };
     
     const handleOpenDeleteOrderModal = (order: RentalOrder) => {
@@ -359,20 +423,40 @@ const App: React.FC = () => {
         setDeleteOrderModalOpen(true);
     };
     
-    const handleDeleteOrder = () => {
+    const handleDeleteOrder = async () => {
         if (orderToDelete) {
-            setRentalOrders(prev => prev.filter(q => q.id !== orderToDelete.id));
-            setDeleteOrderModalOpen(false);
-            setOrderToDelete(null);
+            try {
+                const { error } = await supabase.from('rental_orders').delete().eq('id', orderToDelete.id);
+                if (error) throw error;
+                setRentalOrders(prev => prev.filter(q => q.id !== orderToDelete.id));
+            } catch (error) {
+                 console.error('Error deleting order:', error);
+                alert('Falha ao excluir pedido.');
+            } finally {
+                setDeleteOrderModalOpen(false);
+                setOrderToDelete(null);
+            }
         }
     };
 
-    const handleUpdateOrderStatus = (orderId: string, newStatus: RentalStatus) => {
-        setRentalOrders(prev => prev.map(o => o.id === orderId ? { 
-            ...o, 
+    const handleUpdateOrderStatus = async (orderId: string, newStatus: RentalStatus) => {
+        const order = rentalOrders.find(o => o.id === orderId);
+        if (!order) return;
+        
+        const updatedOrder = { 
+            ...order, 
             status: newStatus,
-            statusHistory: [...o.statusHistory, { status: newStatus, date: new Date().toISOString().split('T')[0]}]
-        } : o));
+            statusHistory: [...order.statusHistory, { status: newStatus, date: new Date().toISOString() }]
+        };
+
+        try {
+            const { error } = await supabase.from('rental_orders').update(updatedOrder).eq('id', orderId);
+            if (error) throw error;
+            setRentalOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
+        } catch(error) {
+            console.error('Error updating status:', error);
+            alert('Falha ao atualizar status.');
+        }
     };
 
     const handleOpenScheduleDeliveryModal = (order: RentalOrder) => {
@@ -385,14 +469,26 @@ const App: React.FC = () => {
         setScheduleDeliveryModalOpen(false);
     };
 
-    const handleSaveDeliveryDate = (orderId: string, deliveryDate: string) => {
-        setRentalOrders(prev => prev.map(o => o.id === orderId ? {
-            ...o,
+    const handleSaveDeliveryDate = async (orderId: string, deliveryDate: string) => {
+        const order = rentalOrders.find(o => o.id === orderId);
+        if (!order) return;
+
+        const updatedOrder = {
+            ...order,
             deliveryDate: deliveryDate,
-            status: 'Reservado', // Move to next stage
-            statusHistory: [...o.statusHistory, { status: 'Reservado', date: new Date().toISOString().split('T')[0]}]
-        } : o));
-        handleCloseScheduleDeliveryModal();
+            status: 'Reservado' as RentalStatus,
+            statusHistory: [...order.statusHistory, { status: 'Reservado' as RentalStatus, date: new Date().toISOString() }]
+        };
+
+        try {
+            const { error } = await supabase.from('rental_orders').update(updatedOrder).eq('id', orderId);
+            if(error) throw error;
+            setRentalOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
+            handleCloseScheduleDeliveryModal();
+        } catch(error) {
+            console.error('Error saving delivery date:', error);
+            alert('Falha ao agendar entrega.');
+        }
     };
 
 
@@ -443,6 +539,17 @@ const App: React.FC = () => {
                 return <PlaceholderPage title={activePage} />;
         }
     };
+    
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-neutral-bg text-neutral-text-primary">
+                <div className="flex flex-col items-center gap-4">
+                    <LoaderCircle size={48} className="animate-spin text-primary" />
+                    <p className="font-semibold text-lg">Carregando dados...</p>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="flex h-screen font-sans text-neutral-text-primary bg-neutral-bg">
@@ -540,6 +647,13 @@ const App: React.FC = () => {
             </main>
         </div>
     );
+};
+
+const App: React.FC = () => {
+    if (!isSupabaseConfigured || !supabase) {
+        return <SupabaseSetupMessage />;
+    }
+    return <ConstructFlowApp supabase={supabase} />;
 };
 
 export default App;
