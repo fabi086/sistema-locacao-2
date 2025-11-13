@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Search, Printer, Edit2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
-import { Quote, QuoteStatus, Equipment } from '../types';
+import { Quote, QuoteStatus, Equipment, RentalOrder } from '../types';
 import QuotePrintModal from './QuotePrintModal';
 
 const statusColors: Record<QuoteStatus, string> = {
@@ -49,7 +49,14 @@ const Orcamentos: React.FC<OrcamentosProps> = ({ quotes, onOpenQuoteModal, onEdi
     return (
         <>
             <AnimatePresence>
-                {quoteToPrint && <QuotePrintModal quote={quoteToPrint} onClose={() => setQuoteToPrint(null)} />}
+                {/* FIX: Transform Quote object to RentalOrder to match QuotePrintModal's expected props. */}
+                {quoteToPrint && <QuotePrintModal quote={{
+                    ...quoteToPrint,
+                    // FIX: Added the `value` property to the equipment item to match the `EquipmentOrderItem` type.
+                    equipmentItems: [{ equipmentId: 'N/A', equipmentName: quoteToPrint.equipment, value: quoteToPrint.value }],
+                    status: 'Proposta', // Fulfill type requirement for printing
+                    statusHistory: [{ status: 'Proposta', date: quoteToPrint.createdDate }],
+                } as RentalOrder} onClose={() => setQuoteToPrint(null)} />}
             </AnimatePresence>
             <div className="p-6 md:p-8">
                 <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">

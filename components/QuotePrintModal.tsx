@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion, Variants } from 'framer-motion';
 import { X, Printer, HardHat } from 'lucide-react';
-import { Quote } from '../types';
+import { RentalOrder } from '../types';
 
-const QuotePrintModal: React.FC<{ quote: Quote; onClose: () => void }> = ({ quote, onClose }) => {
+const QuotePrintModal: React.FC<{ quote: RentalOrder; onClose: () => void }> = ({ quote, onClose }) => {
     
     const handlePrint = () => {
         const printContent = document.getElementById('printable-area');
@@ -29,12 +29,8 @@ const QuotePrintModal: React.FC<{ quote: Quote; onClose: () => void }> = ({ quot
         exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2, ease: 'easeIn' } },
     };
 
-    const items = [
-        { description: quote.equipment, period: '15 dias', unitPrice: quote.value, total: quote.value },
-    ];
-    const subtotal = items.reduce((acc, item) => acc + item.total, 0);
-    const tax = subtotal * 0.05; // 5% de imposto
-    const total = subtotal + tax;
+    const subtotal = quote.value;
+    const total = subtotal + (quote.freightCost || 0) + (quote.accessoriesCost || 0) - (quote.discount || 0);
 
     return (
         <motion.div
@@ -97,40 +93,66 @@ const QuotePrintModal: React.FC<{ quote: Quote; onClose: () => void }> = ({ quot
                             <div className="text-right">
                                 <p className="text-gray-600"><span className="font-semibold">Data de Emissão:</span> {new Date(quote.createdDate + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
                                 <p className="text-gray-600"><span className="font-semibold">Válido até:</span> {new Date(quote.validUntil + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                                <p className="text-gray-600"><span className="font-semibold">Período de Locação:</span> {`${new Date(quote.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} a ${new Date(quote.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}`}</p>
                             </div>
                         </section>
                         <section className="mb-8">
                             <table className="w-full text-left">
                                 <thead className="bg-gray-100">
                                     <tr>
-                                        <th className="p-3 text-sm font-semibold uppercase text-gray-600">Item</th>
-                                        <th className="p-3 text-sm font-semibold uppercase text-gray-600 text-center">Período</th>
-                                        <th className="p-3 text-sm font-semibold uppercase text-gray-600 text-right">Preço Unit.</th>
-                                        <th className="p-3 text-sm font-semibold uppercase text-gray-600 text-right">Total</th>
+                                        <th className="p-3 text-sm font-semibold uppercase text-gray-600 w-16 text-center">Item</th>
+                                        <th className="p-3 text-sm font-semibold uppercase text-gray-600">Descrição</th>
+                                        <th className="p-3 text-sm font-semibold uppercase text-gray-600 text-right w-48">Período de Locação</th>
+                                        <th className="p-3 text-sm font-semibold uppercase text-gray-600 text-right w-32">Valor</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {items.map((item, index) => (
-                                    <tr key={index} className="border-b border-gray-200">
-                                        <td className="p-3 font-medium">{item.description}</td>
-                                        <td className="p-3 text-center text-gray-600">{item.period}</td>
-                                        <td className="p-3 text-right text-gray-600">R$ {item.unitPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                                        <td className="p-3 text-right font-semibold">R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                                    </tr>
-                                    ))}
+                                    {quote.equipmentItems.length > 0 ? (
+                                        quote.equipmentItems.map((item, index) => {
+                                            const rentalPeriodString = `${new Date(quote.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} a ${new Date(quote.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}`;
+                                            const itemValue = item.value || 0;
+                                            
+                                            return (
+                                                <tr key={item.equipmentId} className="border-b border-gray-200">
+                                                    <td className="p-3 w-16 text-center font-medium">{String(index + 1).padStart(3, '0')}</td>
+                                                    <td className="p-3 font-medium text-neutral-text-primary">{item.equipmentName}</td>
+                                                    <td className="p-3 text-right text-sm text-gray-700">{rentalPeriodString}</td>
+                                                    <td className="p-3 text-right font-semibold text-neutral-text-primary">R$ {itemValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                                </tr>
+                                            );
+                                        })
+                                    ) : (
+                                        <tr className="border-b border-gray-200">
+                                            <td colSpan={4} className="p-4 text-center text-gray-500">Nenhum item de equipamento no orçamento.</td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </section>
                         <section className="flex justify-end mb-8">
-                            <div className="w-full max-w-xs space-y-2 text-gray-600">
+                            <div className="w-full max-w-sm space-y-2 text-gray-600">
                                 <div className="flex justify-between">
-                                    <span>Subtotal:</span>
+                                    <span>Subtotal (Equipamentos):</span>
                                     <span className="font-medium">R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                 </div>
+                                {quote.freightCost && (
                                 <div className="flex justify-between">
-                                    <span>Impostos (5%):</span>
-                                    <span className="font-medium">R$ {tax.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                    <span>Frete:</span>
+                                    <span className="font-medium">R$ {quote.freightCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                 </div>
+                                )}
+                                {quote.accessoriesCost && (
+                                <div className="flex justify-between">
+                                    <span>Acessórios:</span>
+                                    <span className="font-medium">R$ {quote.accessoriesCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                )}
+                                {quote.discount && (
+                                <div className="flex justify-between text-red-600">
+                                    <span>Desconto:</span>
+                                    <span className="font-medium">- R$ {quote.discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                )}
                                 <div className="flex justify-between pt-2 border-t border-gray-300">
                                     <span className="font-bold text-lg text-neutral-text-primary">Total:</span>
                                     <span className="font-bold text-lg text-primary">R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>

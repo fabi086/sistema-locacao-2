@@ -1,11 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
-
-// These variables should be set in your environment configuration.
-const supabaseUrl = process.env.SUPABASE_URL as string;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY as string;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Supabase URL and anon key are required. Please check your environment variables.");
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// This file is part of a previous database implementation and is no longer in use.
+// It has been neutralized to prevent it from throwing errors during application startup.
+export const supabase = null;

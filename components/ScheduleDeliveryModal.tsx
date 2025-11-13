@@ -60,7 +60,8 @@ const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({ isOpen, o
                 <div className="p-8 space-y-6">
                     <div className="p-4 bg-neutral-card-alt rounded-lg text-sm">
                         <p><span className="font-semibold">Pedido:</span> {order.id}</p>
-                        <p><span className="font-semibold">Equipamento:</span> {order.equipment}</p>
+                        {/* FIX: The 'equipment' property does not exist on 'RentalOrder'. Switched to 'equipmentItems' to correctly display equipment names. */}
+                        <p><span className="font-semibold">Equipamento:</span> {order.equipmentItems.map(item => item.equipmentName).join(', ')}</p>
                         <p><span className="font-semibold">Cliente:</span> {order.client}</p>
                     </div>
                     <div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, Variants } from 'framer-motion';
 import { X, HardHat, List, Tag, MapPin } from 'lucide-react';
-import { Equipment, EquipmentCategory } from '../types';
+import { Equipment, EquipmentCategory, EquipmentStatus } from '../types';
 
 interface AddEquipmentModalProps {
     onClose: () => void;
@@ -33,9 +33,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         }
 
         const commonData = { name, category, serialNumber, location };
+        // FIX: Explicitly cast 'Disponível' to EquipmentStatus to ensure type correctness.
         const equipmentData = isEditing 
             ? { ...equipmentToEdit, ...commonData } 
-            : { ...commonData, status: 'Disponível' }; // Status default para novos
+            : { ...commonData, status: 'Disponível' as EquipmentStatus }; // Status default para novos
 
         onSave(equipmentData);
     };

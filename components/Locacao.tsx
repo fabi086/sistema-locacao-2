@@ -6,7 +6,6 @@ import OrderCard from './OrderCard';
 import OrderDetailModal from './OrderDetailModal';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import QuotePrintModal from './QuotePrintModal';
 
 
 const columns: RentalStatus[] = ['Proposta', 'Aprovado', 'Reservado', 'Em Rota', 'Ativo', 'Concluído', 'Pendente de Pagamento'];
@@ -39,9 +38,10 @@ interface LocacaoProps {
     onDelete: (order: RentalOrder) => void;
     onUpdateStatus: (orderId: string, newStatus: RentalStatus) => void;
     onOpenScheduleDeliveryModal: (order: RentalOrder) => void;
+    onOpenPrintModal: (order: RentalOrder) => void;
 }
 
-const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDelete, onUpdateStatus, onOpenScheduleDeliveryModal }) => {
+const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDelete, onUpdateStatus, onOpenScheduleDeliveryModal, onOpenPrintModal }) => {
     const [view, setView] = useState<'pipeline' | 'table'>('pipeline');
     const [selectedOrder, setSelectedOrder] = useState<RentalOrder | null>(null);
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -49,7 +49,6 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
     // State for Table View
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<RentalStatus | 'Todos'>('Todos');
-    const [orderToPrint, setOrderToPrint] = useState<RentalOrder | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -71,7 +70,8 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
             const searchMatch = searchTerm.toLowerCase() === '' ||
                 order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 order.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                order.equipment.toLowerCase().includes(searchTerm.toLowerCase());
+                // FIX: The 'equipment' property does not exist on 'RentalOrder'. Switched to 'equipmentItems' to correctly filter by equipment name.
+                order.equipmentItems.some(item => item.equipmentName.toLowerCase().includes(searchTerm.toLowerCase()));
             
             const statusMatch = statusFilter === 'Todos' || order.status === statusFilter;
 
@@ -203,7 +203,7 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                                             <button onClick={() => onEdit(order)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors" aria-label={`Editar pedido ${order.id}`}>
                                                 <Edit2 size={16} />
                                             </button>
-                                            <button onClick={() => setOrderToPrint(order)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors" aria-label={`Imprimir pedido ${order.id}`}>
+                                            <button onClick={() => onOpenPrintModal(order)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors" aria-label={`Imprimir pedido ${order.id}`}>
                                                 <Printer size={18} />
                                             </button>
                                             <button onClick={() => onDelete(order)} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors" aria-label={`Excluir pedido ${order.id}`}>
@@ -229,7 +229,6 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
         <>
             <AnimatePresence>
                 {selectedOrder && <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />}
-                {orderToPrint && <QuotePrintModal quote={orderToPrint} onClose={() => setOrderToPrint(null)} />}
             </AnimatePresence>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                 <div className="flex flex-col h-full">

@@ -56,6 +56,7 @@ export interface Equipment {
         daily: number;
         weekly: number;
         biweekly: number; // Quinzenal
+        monthly: number;
     };
 }
 
@@ -66,19 +67,29 @@ export interface StatusHistory {
     date: string;
 }
 
+export interface EquipmentOrderItem {
+    equipmentId: string;
+    equipmentName: string;
+    value: number;
+}
+
 export interface RentalOrder {
     id: string;
     client: string;
-    equipment: string;
+    equipmentItems: EquipmentOrderItem[];
     startDate: string;
     endDate: string;
-    value: number;
+    value: number; // Subtotal for equipment
+    freightCost?: number;
+    accessoriesCost?: number;
+    discount?: number;
     status: RentalStatus;
     statusHistory: StatusHistory[];
     createdDate: string;
     validUntil: string;
     deliveryDate?: string;
 }
+
 
 export type QuoteStatus = 'Pendente' | 'Aprovado' | 'Recusado';
 

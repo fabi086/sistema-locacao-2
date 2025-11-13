@@ -25,6 +25,8 @@ const OrderDetailModal: React.FC<{ order: RentalOrder; onClose: () => void }> = 
         'Concluído': 'bg-gray-600',
         'Pendente de Pagamento': 'bg-orange-500',
     };
+    
+    const totalValue = order.value + (order.freightCost || 0) + (order.accessoriesCost || 0) - (order.discount || 0);
 
     return (
         <motion.div
@@ -58,14 +60,29 @@ const OrderDetailModal: React.FC<{ order: RentalOrder; onClose: () => void }> = 
                    <div className="space-y-6">
                        <h3 className="font-bold text-lg text-neutral-text-primary border-b pb-2">Informações Gerais</h3>
                        <div className="space-y-4 text-sm">
-                           <div className="flex items-center gap-3"><Building size={18} className="text-primary"/> <div><span className="font-semibold">Cliente:</span> {order.client}</div></div>
-                           <div className="flex items-center gap-3"><HardHat size={18} className="text-primary"/> <div><span className="font-semibold">Equipamento:</span> {order.equipment}</div></div>
-                           <div className="flex items-center gap-3"><Calendar size={18} className="text-primary"/> <div><span className="font-semibold">Período:</span> {new Date(order.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} a {new Date(order.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}</div></div>
+                           <div className="flex items-start gap-3"><Building size={18} className="text-primary mt-1 flex-shrink-0"/> <div><span className="font-semibold">Cliente:</span> {order.client}</div></div>
+                           <div className="flex items-start gap-3"><Calendar size={18} className="text-primary mt-1 flex-shrink-0"/> <div><span className="font-semibold">Período:</span> {new Date(order.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} a {new Date(order.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}</div></div>
                            {order.deliveryDate && (
-                                <div className="flex items-center gap-3"><Truck size={18} className="text-primary"/> <div><span className="font-semibold">Entrega Agendada:</span> {new Date(order.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR')}</div></div>
+                                <div className="flex items-start gap-3"><Truck size={18} className="text-primary mt-1 flex-shrink-0"/> <div><span className="font-semibold">Entrega Agendada:</span> {new Date(order.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR')}</div></div>
                            )}
-                           <div className="flex items-center gap-3"><DollarSign size={18} className="text-primary"/> <div><span className="font-semibold">Valor Total:</span> R$ {order.value.toLocaleString('pt-BR')}</div></div>
+                           <div className="flex items-start gap-3"><HardHat size={18} className="text-primary mt-1 flex-shrink-0"/>
+                                <div>
+                                    <span className="font-semibold">Equipamentos:</span>
+                                    <ul className="list-disc list-inside mt-1">
+                                        {order.equipmentItems.map(item => <li key={item.equipmentId}>{item.equipmentName}</li>)}
+                                    </ul>
+                                </div>
+                            </div>
                        </div>
+                       <h3 className="font-bold text-lg text-neutral-text-primary border-b pb-2 mt-6">Resumo Financeiro</h3>
+                       <div className="space-y-2 text-sm">
+                           <div className="flex justify-between"><span>Subtotal (Equipamentos):</span> <span>R$ {order.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+                           {order.freightCost && <div className="flex justify-between"><span>Frete:</span> <span>+ R$ {order.freightCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>}
+                           {order.accessoriesCost && <div className="flex justify-between"><span>Acessórios:</span> <span>+ R$ {order.accessoriesCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>}
+                           {order.discount && <div className="flex justify-between text-accent-danger"><span>Desconto:</span> <span>- R$ {order.discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>}
+                           <div className="flex justify-between font-bold text-base pt-2 border-t mt-2"><span>Total:</span> <span className="text-accent-success">R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+                       </div>
+
                    </div>
                    <div className="space-y-6">
                        <h3 className="font-bold text-lg text-neutral-text-primary border-b pb-2">Histórico de Status</h3>

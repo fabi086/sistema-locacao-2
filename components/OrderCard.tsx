@@ -33,6 +33,8 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDeliver
         onScheduleDelivery();
     };
 
+    const totalValue = order.value + (order.freightCost || 0) + (order.accessoriesCost || 0) - (order.discount || 0);
+
     return (
         <div
             ref={setNodeRef}
@@ -45,11 +47,18 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDeliver
             <div className="flex justify-between items-start">
                  <p className="font-bold text-neutral-text-primary text-sm">{order.id}</p>
                  <span className="text-xs font-bold text-accent-success">
-                     R$ {order.value.toLocaleString('pt-BR')}
+                     R$ {totalValue.toLocaleString('pt-BR')}
                  </span>
             </div>
             
-            <p className="text-sm text-neutral-text-secondary mt-2 mb-4 font-semibold">{order.equipment}</p>
+            <p className="text-sm text-neutral-text-secondary mt-2 mb-4 font-semibold">
+                {order.equipmentItems[0]?.equipmentName}
+                {order.equipmentItems.length > 1 && (
+                    <span className="ml-2 bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 rounded-full">
+                        + {order.equipmentItems.length - 1}
+                    </span>
+                )}
+            </p>
 
             <div className="space-y-2 text-xs text-neutral-text-secondary">
                  <div className="flex items-center gap-2">

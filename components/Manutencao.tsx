@@ -1,15 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2 } from 'lucide-react';
 import { motion, Variants } from 'framer-motion';
 import { MaintenanceOrder, MaintenanceStatus, MaintenanceType } from '../types';
-
-const maintenanceData: MaintenanceOrder[] = [
-    { id: 'OS-001', equipment: 'Escavadeira CAT 320D', type: 'Corretiva', status: 'Concluída', cost: 2500.00, scheduledDate: '2024-07-10' },
-    { id: 'OS-002', equipment: 'Guindaste Liebherr LTM 1050', type: 'Preventiva', status: 'Em Andamento', cost: 1200.00, scheduledDate: '2024-08-10' },
-    { id: 'OS-003', equipment: 'Betoneira CSM 400L', type: 'Preventiva', status: 'Pendente', cost: 450.00, scheduledDate: '2024-08-15' },
-    { id: 'OS-004', equipment: 'Betoneira Menegotti 150L', type: 'Corretiva', status: 'Concluída', cost: 780.50, scheduledDate: '2024-07-22' },
-    { id: 'OS-005', equipment: 'Escavadeira Komatsu PC200', type: 'Preventiva', status: 'Pendente', cost: 900.00, scheduledDate: '2024-08-20' },
-];
 
 const statusColors: Record<MaintenanceStatus, string> = {
     'Pendente': 'bg-yellow-500/10 text-yellow-600',
@@ -17,19 +9,21 @@ const statusColors: Record<MaintenanceStatus, string> = {
     'Concluída': 'bg-accent-success/10 text-accent-success',
 };
 
-const StatusBadge: React.FC<{ status: MaintenanceStatus }> = ({ status }) => (
-    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${statusColors[status]}`}>
-        {status}
-    </span>
-);
+interface ManutencaoProps {
+    maintenanceOrders: MaintenanceOrder[];
+    onAdd: () => void;
+    onEdit: (order: MaintenanceOrder) => void;
+    onDelete: (order: MaintenanceOrder) => void;
+    onUpdateStatus: (orderId: string, newStatus: MaintenanceStatus) => void;
+}
 
-const Manutencao: React.FC = () => {
+const Manutencao: React.FC<ManutencaoProps> = ({ maintenanceOrders, onAdd, onEdit, onDelete, onUpdateStatus }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<MaintenanceStatus | 'Todos'>('Todos');
     const [typeFilter, setTypeFilter] = useState<MaintenanceType | 'Todos'>('Todos');
 
     const filteredOrders = useMemo(() => {
-        return maintenanceData.filter(order => {
+        return maintenanceOrders.filter(order => {
             const searchMatch = searchTerm.toLowerCase() === '' ||
                 order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 order.equipment.toLowerCase().includes(searchTerm.toLowerCase());
@@ -39,7 +33,7 @@ const Manutencao: React.FC = () => {
 
             return searchMatch && statusMatch && typeMatch;
         });
-    }, [searchTerm, statusFilter, typeFilter]);
+    }, [searchTerm, statusFilter, typeFilter, maintenanceOrders]);
 
     const containerVariants: Variants = {
         hidden: { opacity: 0 },
@@ -58,7 +52,7 @@ const Manutencao: React.FC = () => {
                     <h2 className="text-3xl font-bold text-neutral-text-primary">Manutenção</h2>
                     <p className="text-neutral-text-secondary mt-1">Gerencie as ordens de serviço da sua frota.</p>
                 </div>
-                 <button className="flex items-center gap-2 text-sm font-semibold bg-secondary text-white px-4 py-2 rounded-lg shadow-sm hover:bg-secondary-dark transition-colors mt-4 md:mt-0">
+                 <button onClick={onAdd} className="flex items-center gap-2 text-sm font-semibold bg-secondary text-white px-4 py-2 rounded-lg shadow-sm hover:bg-secondary-dark transition-colors mt-4 md:mt-0">
                     <Plus size={16} />
                     <span>Nova Ordem de Serviço</span>
                 </button>
@@ -113,6 +107,7 @@ const Manutencao: React.FC = () => {
                             <th className="p-4 hidden sm:table-cell">Data Agendada</th>
                             <th className="p-4 hidden md:table-cell">Custo</th>
                             <th className="p-4">Status</th>
+                            <th className="p-4 text-center">Ações</th>
                         </tr>
                     </thead>
                     <motion.tbody variants={containerVariants}>
@@ -127,7 +122,34 @@ const Manutencao: React.FC = () => {
                                 <td className="p-4 text-neutral-text-secondary hidden md:table-cell">{order.type}</td>
                                 <td className="p-4 text-neutral-text-secondary hidden sm:table-cell">{new Date(order.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
                                 <td className="p-4 text-neutral-text-secondary hidden md:table-cell font-semibold">R$ {order.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                                <td className="p-4"><StatusBadge status={order.status} /></td>
+                                <td className="p-4">
+                                     <div className="relative inline-block">
+                                        <select
+                                            value={order.status}
+                                            onChange={(e) => onUpdateStatus(order.id, e.target.value as MaintenanceStatus)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className={`pl-2.5 pr-8 py-1 text-xs font-semibold rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary border-none transition-colors ${statusColors[order.status]}`}
+                                            aria-label={`Mudar status da OS ${order.id}`}
+                                        >
+                                            <option value="Pendente">Pendente</option>
+                                            <option value="Em Andamento">Em Andamento</option>
+                                            <option value="Concluída">Concluída</option>
+                                        </select>
+                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-current">
+                                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td className="p-4">
+                                    <div className="flex items-center justify-center gap-2">
+                                        <button onClick={() => onEdit(order)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors">
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button onClick={() => onDelete(order)} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors">
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </td>
                             </motion.tr>
                         ))}
                     </motion.tbody>

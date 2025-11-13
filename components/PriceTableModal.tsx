@@ -13,6 +13,7 @@ type PricesState = Record<string, {
     daily: string;
     weekly: string;
     biweekly: string;
+    monthly: string;
 }>;
 
 const PriceTableModal: React.FC<PriceTableModalProps> = ({ onClose, onSave, equipment }) => {
@@ -22,21 +23,30 @@ const PriceTableModal: React.FC<PriceTableModalProps> = ({ onClose, onSave, equi
                 daily: eq.pricing?.daily?.toString() ?? '',
                 weekly: eq.pricing?.weekly?.toString() ?? '',
                 biweekly: eq.pricing?.biweekly?.toString() ?? '',
+                monthly: eq.pricing?.monthly?.toString() ?? '',
             };
             return acc;
         }, {} as PricesState)
     );
 
-    const handlePriceChange = (id: string, field: 'daily' | 'weekly' | 'biweekly', value: string) => {
+    const handlePriceChange = (id: string, field: 'daily' | 'weekly' | 'biweekly' | 'monthly', value: string) => {
         // Permite apenas números e um ponto decimal
         if (/^\d*\.?\d*$/.test(value)) {
-            setPrices(prev => ({
-                ...prev,
-                [id]: {
-                    ...(prev[id] || {}),
-                    [field]: value
+            // FIX: Refactored setPrices to be fully type-safe, handling potentially undefined prev[id].
+            setPrices(prev => {
+                const currentPrices = prev[id];
+                if (!currentPrices) {
+                    // This should not happen with the current logic, but it makes the function robust.
+                    return prev;
                 }
-            }));
+                return {
+                    ...prev,
+                    [id]: {
+                        ...currentPrices,
+                        [field]: value
+                    }
+                };
+            });
         }
     };
 
@@ -49,6 +59,7 @@ const PriceTableModal: React.FC<PriceTableModalProps> = ({ onClose, onSave, equi
                     daily: parseFloat(newPrices.daily) || 0,
                     weekly: parseFloat(newPrices.weekly) || 0,
                     biweekly: parseFloat(newPrices.biweekly) || 0,
+                    monthly: parseFloat(newPrices.monthly) || 0,
                 }
             };
         });
@@ -79,7 +90,7 @@ const PriceTableModal: React.FC<PriceTableModalProps> = ({ onClose, onSave, equi
             role="dialog"
         >
             <motion.div
-                className="bg-neutral-bg rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]"
+                className="bg-neutral-bg rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]"
                 variants={modalVariants}
                 onClick={(e) => e.stopPropagation()}
             >
@@ -98,6 +109,7 @@ const PriceTableModal: React.FC<PriceTableModalProps> = ({ onClose, onSave, equi
                                     <th className="p-4 w-40 text-right">Diária (R$)</th>
                                     <th className="p-4 w-40 text-right">Semanal (R$)</th>
                                     <th className="p-4 w-40 text-right">Quinzenal (R$)</th>
+                                    <th className="p-4 w-40 text-right">Mensal (R$)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -112,6 +124,9 @@ const PriceTableModal: React.FC<PriceTableModalProps> = ({ onClose, onSave, equi
                                         </td>
                                         <td className="p-2">
                                             <input type="text" value={prices[eq.id]?.biweekly ?? ''} onChange={e => handlePriceChange(eq.id, 'biweekly', e.target.value)} className="w-full text-right px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-neutral-text-primary" />
+                                        </td>
+                                        <td className="p-2">
+                                            <input type="text" value={prices[eq.id]?.monthly ?? ''} onChange={e => handlePriceChange(eq.id, 'monthly', e.target.value)} className="w-full text-right px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-neutral-text-primary" />
                                         </td>
                                     </tr>
                                 ))}

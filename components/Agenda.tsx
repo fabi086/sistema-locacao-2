@@ -1,17 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Truck, Wrench } from 'lucide-react';
-import { CalendarEvent, CalendarEventType } from '../types';
-
-const eventData: CalendarEvent[] = [
-    { id: 'EVT-001', title: 'Entrega: EQP-001', date: '2024-08-01', type: 'Entrega' },
-    { id: 'EVT-002', title: 'Coleta: EQP-005', date: '2024-07-28', type: 'Coleta' },
-    { id: 'EVT-003', title: 'Manutenção: EQP-003', date: '2024-08-10', type: 'Manutenção' },
-    { id: 'EVT-004', title: 'Entrega: EQP-002', date: '2024-08-05', type: 'Entrega' },
-    { id: 'EVT-005', title: 'Coleta: EQP-002', date: '2024-08-10', type: 'Coleta' },
-    { id: 'EVT-006', title: 'Manutenção: EQP-006', date: '2024-08-15', type: 'Manutenção' },
-    { id: 'EVT-007', title: 'Entrega: LOC-006', date: '2024-08-12', type: 'Entrega' },
-];
+import { CalendarEvent, CalendarEventType, RentalOrder, MaintenanceOrder } from '../types';
 
 const eventColors: Record<CalendarEventType, { bg: string; text: string; Icon: React.ElementType }> = {
     'Entrega': { bg: 'bg-blue-100', text: 'text-blue-700', Icon: Truck },
@@ -19,10 +9,53 @@ const eventColors: Record<CalendarEventType, { bg: string; text: string; Icon: R
     'Manutenção': { bg: 'bg-purple-100', text: 'text-purple-700', Icon: Wrench },
 };
 
-const Agenda: React.FC = () => {
-    const [currentDate, setCurrentDate] = useState(new Date());
+interface AgendaProps {
+    rentalOrders: RentalOrder[];
+    maintenanceOrders: MaintenanceOrder[];
+}
+
+const Agenda: React.FC<AgendaProps> = ({ rentalOrders, maintenanceOrders }) => {
+    const [currentDate, setCurrentDate] = useState(new Date('2024-08-01T12:00:00Z'));
 
     const isSameDay = (d1: Date, d2: Date) => d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
+
+    const allEvents = useMemo(() => {
+        const events: CalendarEvent[] = [];
+
+        // Events from rental orders
+        rentalOrders.forEach(order => {
+            if (order.deliveryDate) {
+                events.push({
+                    id: `${order.id}-entrega`,
+                    title: `Entrega: ${order.id}`,
+                    date: order.deliveryDate,
+                    type: 'Entrega'
+                });
+            }
+            // Add collection event based on the rental end date
+            if (['Ativo', 'Concluído', 'Pendente de Pagamento'].includes(order.status)) {
+                 events.push({
+                    id: `${order.id}-coleta`,
+                    title: `Coleta: ${order.id}`,
+                    date: order.endDate,
+                    type: 'Coleta'
+                 });
+            }
+        });
+
+        // Events from maintenance orders
+        maintenanceOrders.forEach(maint => {
+            events.push({
+                id: maint.id,
+                title: `Manut: ${maint.equipment.substring(0, 10)}...`,
+                date: maint.scheduledDate,
+                type: 'Manutenção'
+            });
+        });
+
+        return events;
+    }, [rentalOrders, maintenanceOrders]);
+
 
     const calendarGrid = useMemo(() => {
         const year = currentDate.getFullYear();
@@ -51,7 +84,7 @@ const Agenda: React.FC = () => {
     }, [currentDate]);
 
     const eventsByDate = useMemo(() => {
-        return eventData.reduce((acc, event) => {
+        return allEvents.reduce((acc, event) => {
             const date = event.date;
             if (!acc[date]) {
                 acc[date] = [];
@@ -59,7 +92,7 @@ const Agenda: React.FC = () => {
             acc[date].push(event);
             return acc;
         }, {} as Record<string, CalendarEvent[]>);
-    }, []);
+    }, [allEvents]);
 
     const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
     const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
@@ -94,7 +127,7 @@ const Agenda: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-7 grid-rows-6 flex-1">
                     {calendarGrid.map(({ day, isCurrentMonth, date }, index) => {
-                        const dateString = date.toISOString().split('T')[0];
+                        const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
                         const dayEvents = eventsByDate[dateString] || [];
                         const isToday = isSameDay(date, new Date());
                         
