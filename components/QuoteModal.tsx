@@ -188,7 +188,7 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
             (savedOrder.accessoriesCost ? `Acessórios: R$ ${savedOrder.accessoriesCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` : '') +
             (savedOrder.discount ? `Desconto: - R$ ${savedOrder.discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` : '') +
             `*Valor Total: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n` +
-            `Agradecemos a preferência!\nConstructFlow`;
+            `Agradecemos a preferência!\nObraFácil`;
         
         const url = `https://wa.me/${fullPhoneNumber}?text=${encodeURIComponent(message)}`;
         window.open(url, '_blank');

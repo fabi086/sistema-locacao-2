@@ -60,7 +60,7 @@ export interface Equipment {
     };
 }
 
-export type RentalStatus = 'Proposta' | 'Aprovado' | 'Reservado' | 'Em Rota' | 'Ativo' | 'Concluído' | 'Pendente de Pagamento';
+export type RentalStatus = 'Proposta' | 'Aprovado' | 'Recusado' | 'Reservado' | 'Em Rota' | 'Ativo' | 'Concluído' | 'Pendente de Pagamento';
 
 export interface StatusHistory {
     status: RentalStatus;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dashboard from './components/Dashboard';
 import PlaceholderPage from './components/PlaceholderPage';
@@ -12,7 +12,7 @@ import Manutencao from './components/Manutencao';
 import Usuarios from './components/Usuarios';
 import AddClientModal from './components/AddClientModal';
 import { Equipment, Customer, User, RentalOrder, RentalStatus, MaintenanceOrder, MaintenanceStatus } from './types';
-import { Truck, Wrench, FileText, Users, Building, Calendar, Settings, HardHat, LogOut, ChevronLeft, LayoutDashboard, Menu } from 'lucide-react';
+import { Truck, Wrench, FileText, Users, Building, Calendar, Settings, HardHat, LogOut, ChevronLeft, LayoutDashboard, Menu, ClipboardList } from 'lucide-react';
 import AddEquipmentModal from './components/AddEquipmentModal';
 import ConfirmationModal from './components/ConfirmationModal';
 import Configuracoes from './components/Configuracoes';
@@ -22,6 +22,7 @@ import ScheduleDeliveryModal from './components/ScheduleDeliveryModal';
 import AddMaintenanceModal from './components/AddMaintenanceModal';
 import QuotePrintModal from './components/QuotePrintModal';
 import Login from './components/Login';
+import Orcamentos from './components/Orcamentos';
 
 const initialEquipment: Equipment[] = [
     { id: 'EQP-001', name: 'Escavadeira CAT 320D', category: 'Escavadeiras', serialNumber: 'CAT-12345', status: 'Disponível', location: 'Pátio A', pricing: { daily: 1200, weekly: 7000, biweekly: 13000, monthly: 24000 } },
@@ -40,16 +41,17 @@ const initialClients: Customer[] = [
 ];
 
 const initialUsers: User[] = [
-    { id: 'USR-001', name: 'Admin Geral', email: 'admin@constructflow.com', role: 'Admin', status: 'Ativo', lastLogin: '2024-07-29' },
-    { id: 'USR-002', name: 'Carlos Comercial', email: 'carlos@constructflow.com', role: 'Comercial', status: 'Ativo', lastLogin: '2024-07-29' },
-    { id: 'USR-003', name: 'Fernanda Financeiro', email: 'fernanda@constructflow.com', role: 'Financeiro', status: 'Inativo', lastLogin: '2024-06-15' }
+    { id: 'USR-001', name: 'Admin Geral', email: 'admin@obrafacil.com', role: 'Admin', status: 'Ativo', lastLogin: '2024-07-29' },
+    { id: 'USR-002', name: 'Carlos Comercial', email: 'carlos@obrafacil.com', role: 'Comercial', status: 'Ativo', lastLogin: '2024-07-29' },
+    { id: 'USR-003', name: 'Fernanda Financeiro', email: 'fernanda@obrafacil.com', role: 'Financeiro', status: 'Inativo', lastLogin: '2024-06-15' }
 ];
 
 const initialRentalOrders: RentalOrder[] = [
     { id: 'ORC-001', client: 'Construtora Alfa', equipmentItems: [{ equipmentId: 'EQP-001', equipmentName: 'Escavadeira CAT 320D', value: 15000 }], startDate: '2024-07-31', endDate: '2024-08-11', value: 15000, status: 'Aprovado', statusHistory: [{ status: 'Proposta', date: '2024-07-25' }, { status: 'Aprovado', date: '2024-07-26' }], createdDate: '2024-07-25', validUntil: '2024-08-09' },
     { id: 'ORC-002', client: 'Engenharia Beta', equipmentItems: [{ equipmentId: 'EQP-002', equipmentName: 'Betoneira CSM 400L', value: 2500 }], startDate: '2024-08-04', endDate: '2024-08-09', value: 2500, status: 'Reservado', deliveryDate: '2024-08-03', statusHistory: [{ status: 'Proposta', date: '2024-07-28' }, { status: 'Aprovado', date: '2024-07-29' }, { status: 'Reservado', date: '2024-07-30' }], createdDate: '2024-07-28', validUntil: '2024-08-12' },
     { id: 'ORC-003', client: 'Obras Gamma', equipmentItems: [{ equipmentId: 'EQP-003', equipmentName: 'Guindaste Liebherr LTM 1050', value: 25000 }], startDate: '2024-08-15', endDate: '2024-08-25', value: 25000, status: 'Ativo', deliveryDate: '2024-08-15', statusHistory: [{ status: 'Proposta', date: '2024-08-01' }, { status: 'Aprovado', date: '2024-08-02' }, { status: 'Reservado', date: '2024-08-05' }, { status: 'Em Rota', date: '2024-08-15' }, { status: 'Ativo', date: '2024-08-15' }], createdDate: '2024-08-01', validUntil: '2024-08-16' },
-    { id: 'ORC-004', client: 'Projetos Delta', equipmentItems: [{ equipmentId: 'EQP-004', equipmentName: 'Andaimes Tubulares (Lote 20)', value: 7500 }], startDate: '2024-08-14', endDate: '2024-09-12', value: 7500, status: 'Proposta', statusHistory: [{ status: 'Proposta', date: '2024-08-05' }], createdDate: '2024-08-05', validUntil: '2024-08-20' }
+    { id: 'ORC-004', client: 'Projetos Delta', equipmentItems: [{ equipmentId: 'EQP-004', equipmentName: 'Andaimes Tubulares (Lote 20)', value: 7500 }], startDate: '2024-08-14', endDate: '2024-09-12', value: 7500, status: 'Proposta', statusHistory: [{ status: 'Proposta', date: '2024-08-05' }], createdDate: '2024-08-05', validUntil: '2024-08-20' },
+    { id: 'ORC-005', client: 'Construtora Alfa', equipmentItems: [{ equipmentId: 'EQP-006', equipmentName: 'Betoneira Menegotti 150L', value: 2000 }], startDate: '2024-09-01', endDate: '2024-09-30', value: 2000, status: 'Recusado', statusHistory: [{ status: 'Proposta', date: '2024-08-10' }, { status: 'Recusado', date: '2024-08-12' }], createdDate: '2024-08-10', validUntil: '2024-08-25' },
 ];
 
 const initialMaintenanceOrders: MaintenanceOrder[] = [
@@ -64,6 +66,7 @@ const initialMaintenanceOrders: MaintenanceOrder[] = [
 const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard' },
     { icon: HardHat, label: 'Equipamentos' },
+    { icon: ClipboardList, label: 'Orçamentos' },
     { icon: Truck, label: 'Locação' },
     { icon: FileText, label: 'Contratos' },
     { icon: Building, label: 'Clientes' },
@@ -111,7 +114,7 @@ const Sidebar: React.FC<{
                 <div className="p-6 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                          <HardHat size={28} className="text-secondary"/>
-                         <h1 className="text-xl font-bold">ConstructFlow</h1>
+                         <h1 className="text-xl font-bold">ObraFácil</h1>
                     </div>
                      <button className="p-1 rounded-full bg-primary-dark/50 hover:bg-primary-dark transition-colors md:hidden" onClick={() => setIsOpen(false)} aria-label="Fechar menu">
                         <ChevronLeft size={16} />
@@ -204,6 +207,10 @@ const App: React.FC = () => {
 
     // Pricing State Management
     const [isPriceTableModalOpen, setPriceTableModalOpen] = useState(false);
+
+    // Filtered orders for specific views
+    const quotes = useMemo(() => rentalOrders.filter(o => o.status === 'Proposta' || o.status === 'Recusado'), [rentalOrders]);
+    const activeRentals = useMemo(() => rentalOrders.filter(o => o.status !== 'Proposta' && o.status !== 'Recusado'), [rentalOrders]);
 
     const handleOpenOrderModal = (equipment: Equipment | null = null) => {
         setOrderToEdit(null);
@@ -492,9 +499,19 @@ const App: React.FC = () => {
                             onEdit={handleOpenEditEquipmentModal}
                             onDelete={handleOpenDeleteEquipmentModal}
                         />;
+            case 'Orçamentos':
+                return <Orcamentos 
+                            quotes={quotes}
+                            clients={clients}
+                            onOpenAddModal={handleOpenOrderModal}
+                            onEdit={handleOpenEditOrderModal}
+                            onDelete={handleOpenDeleteOrderModal}
+                            onUpdateStatus={handleUpdateOrderStatus}
+                            onOpenPrintModal={handleOpenPrintModal}
+                        />;
             case 'Locação':
                 return <Locacao 
-                            orders={rentalOrders} 
+                            orders={activeRentals} 
                             onOpenAddModal={handleOpenOrderModal}
                             onEdit={handleOpenEditOrderModal}
                             onDelete={handleOpenDeleteOrderModal}
@@ -556,7 +573,7 @@ const App: React.FC = () => {
                     </button>
                     <div className="flex items-center gap-2">
                          <HardHat size={24} className="text-secondary"/>
-                         <h1 className="text-lg font-bold text-primary">ConstructFlow</h1>
+                         <h1 className="text-lg font-bold text-primary">ObraFácil</h1>
                     </div>
                     <div className="w-8"></div> {/* Spacer to balance the header */}
                 </header>

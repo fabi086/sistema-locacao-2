@@ -38,7 +38,7 @@ const settingsCards: SettingsCardData[] = [
     {
         icon: Plug,
         title: "Integrações",
-        description: "Conecte o ConstructFlow com outras ferramentas.",
+        description: "Conecte o ObraFácil com outras ferramentas.",
         buttonText: "Gerenciar",
         action: 'navigateTo',
         page: 'Integrações'

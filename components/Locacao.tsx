@@ -1,18 +1,19 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { Plus, Search, Printer, Edit2, Trash2, LayoutGrid, List } from 'lucide-react';
-import { Equipment, RentalOrder, RentalStatus } from '../types';
+import { Equipment, RentalOrder, RentalStatus, Customer } from '../types';
 import OrderCard from './OrderCard';
 import OrderDetailModal from './OrderDetailModal';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 
 
-const columns: RentalStatus[] = ['Proposta', 'Aprovado', 'Reservado', 'Em Rota', 'Ativo', 'Concluído', 'Pendente de Pagamento'];
+const columns: RentalStatus[] = ['Aprovado', 'Reservado', 'Em Rota', 'Ativo', 'Concluído', 'Pendente de Pagamento'];
 
 const pipelineStatusColors: Record<RentalStatus, string> = {
     'Proposta': 'border-gray-400',
     'Aprovado': 'border-blue-500',
+    'Recusado': 'border-red-500',
     'Reservado': 'border-purple-500',
     'Em Rota': 'border-yellow-500',
     'Ativo': 'border-green-500',
@@ -23,6 +24,7 @@ const pipelineStatusColors: Record<RentalStatus, string> = {
 const tableStatusColors: Record<RentalStatus, string> = {
     'Proposta': 'bg-yellow-500/10 text-yellow-600',
     'Aprovado': 'bg-accent-success/10 text-accent-success',
+    'Recusado': 'bg-accent-danger/10 text-accent-danger',
     'Reservado': 'bg-purple-500/10 text-purple-600',
     'Em Rota': 'bg-yellow-500/10 text-yellow-600',
     'Ativo': 'bg-blue-500/10 text-blue-600',
@@ -233,8 +235,8 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                 <div className="flex flex-col h-full">
                     <header className="p-4 sm:p-6 md:p-8 flex-col md:flex-row flex justify-between items-start md:items-center border-b border-gray-200 bg-white">
                         <div>
-                            <h2 className="text-2xl sm:text-3xl font-bold text-neutral-text-primary">Locação & Orçamentos</h2>
-                            <p className="text-neutral-text-secondary mt-1">Gerencie o ciclo de vida completo dos seus pedidos.</p>
+                            <h2 className="text-2xl sm:text-3xl font-bold text-neutral-text-primary">Operação / Locação</h2>
+                            <p className="text-neutral-text-secondary mt-1">Gerencie o ciclo de vida dos seus pedidos ativos.</p>
                         </div>
                         <div className="flex items-center gap-4 mt-4 md:mt-0">
                              <div className="flex items-center p-1 bg-neutral-card-alt rounded-lg">

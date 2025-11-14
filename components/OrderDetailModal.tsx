@@ -19,6 +19,7 @@ const OrderDetailModal: React.FC<{ order: RentalOrder; onClose: () => void }> = 
     const statusColors: Record<RentalStatus, string> = {
         'Proposta': 'bg-gray-400',
         'Aprovado': 'bg-blue-500',
+        'Recusado': 'bg-red-500',
         'Reservado': 'bg-purple-500',
         'Em Rota': 'bg-yellow-500',
         'Ativo': 'bg-green-500',

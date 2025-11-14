@@ -16,7 +16,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         setError('');
 
         // Mock authentication
-        if (email === 'admin@constructflow.com' && password === 'password123') {
+        if (email === 'admin@obrafacil.com' && password === 'password123') {
             onLoginSuccess();
         } else {
             setError('Email ou senha inválidos.');
@@ -34,7 +34,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 <div className="text-center">
                     <div className="flex justify-center items-center gap-3 mb-4">
                         <HardHat size={40} className="text-secondary" />
-                        <h1 className="text-3xl font-bold text-primary">ConstructFlow</h1>
+                        <h1 className="text-3xl font-bold text-primary">ObraFácil</h1>
                     </div>
                     <p className="text-neutral-text-secondary">Acesse sua conta para gerenciar suas locações.</p>
                 </div>
