@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Search, Edit2, Trash2 } from 'lucide-react';
-import { motion, Variants } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Customer, CustomerStatus } from '../types';
 
 const statusColors: Record<CustomerStatus, string> = {
@@ -33,12 +33,12 @@ const Clientes: React.FC<ClientesProps> = ({ clients, onOpenAddClientModal, onEd
         });
     }, [searchTerm, clients]);
 
-    const containerVariants: Variants = {
+    const containerVariants: any = {
         hidden: { opacity: 0 },
         visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
     };
 
-    const itemVariants: Variants = {
+    const itemVariants: any = {
         hidden: { y: 20, opacity: 0 },
         visible: { y: 0, opacity: 1, transition: { duration: 0.3, ease: 'easeOut' } }
     };
@@ -71,9 +71,11 @@ const Clientes: React.FC<ClientesProps> = ({ clients, onOpenAddClientModal, onEd
 
             <motion.div 
                 className="bg-neutral-card rounded-lg shadow-sm overflow-x-auto"
-                initial="hidden"
-                animate="visible"
-                variants={containerVariants}
+                {...({
+                    initial: "hidden",
+                    animate: "visible",
+                    variants: containerVariants
+                } as any)}
             >
                 <table className="w-full text-left text-sm">
                     <thead className="bg-neutral-card-alt text-neutral-text-secondary font-semibold">
@@ -85,12 +87,12 @@ const Clientes: React.FC<ClientesProps> = ({ clients, onOpenAddClientModal, onEd
                             <th className="p-4 text-center">Ações</th>
                         </tr>
                     </thead>
-                    <motion.tbody variants={containerVariants}>
+                    <motion.tbody {...({ variants: containerVariants } as any)}>
                         {filteredClients.map(client => (
                             <motion.tr 
                                 key={client.id} 
                                 className="border-b border-neutral-card-alt hover:bg-neutral-bg" 
-                                variants={itemVariants}
+                                {...({ variants: itemVariants } as any)}
                             >
                                 <td className="p-4 font-semibold text-neutral-text-primary">{client.name}</td>
                                 <td className="p-4 text-neutral-text-secondary hidden sm:table-cell">

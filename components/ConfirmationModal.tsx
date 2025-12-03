@@ -1,16 +1,16 @@
 import React from 'react';
-import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertTriangle } from 'lucide-react';
 import { ConfirmationModalProps } from '../types';
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, onClose, onConfirm, title, message }) => {
-    const backdropVariants: Variants = {
+    const backdropVariants: any = {
         hidden: { opacity: 0 },
         visible: { opacity: 1 },
         exit: { opacity: 0 },
     };
 
-    const modalVariants: Variants = {
+    const modalVariants: any = {
         hidden: { opacity: 0, y: 50, scale: 0.95 },
         visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.3, ease: 'easeOut' } },
         exit: { opacity: 0, y: -50, scale: 0.95, transition: { duration: 0.2, ease: 'easeIn' } },
@@ -19,18 +19,22 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, onClose, 
     return (
         <motion.div
             className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
-            variants={backdropVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            onClick={onClose}
-            aria-modal="true"
-            role="dialog"
+            {...({
+                variants: backdropVariants,
+                initial: "hidden",
+                animate: "visible",
+                exit: "exit",
+                onClick: onClose,
+                "aria-modal": "true",
+                role: "dialog"
+            } as any)}
         >
             <motion.div
                 className="bg-neutral-bg rounded-xl shadow-2xl w-full max-w-md overflow-hidden"
-                variants={modalVariants}
-                onClick={(e) => e.stopPropagation()}
+                {...({
+                    variants: modalVariants,
+                    onClick: (e: any) => e.stopPropagation()
+                } as any)}
             >
                 <div className="p-8 text-center">
                     <div className="mx-auto bg-accent-danger/10 rounded-full w-16 h-16 flex items-center justify-center mb-4">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Calendar, Wrench, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Equipment, RentalHistoryItem, MaintenanceRecord } from '../types';
 
@@ -115,13 +115,13 @@ const EquipmentDetailDrawer: React.FC<EquipmentDetailDrawerProps> = ({ equipment
         setActiveTab('Disponibilidade');
     }, [equipment]);
 
-    const backdropVariants: Variants = {
+    const backdropVariants: any = {
         hidden: { opacity: 0 },
         visible: { opacity: 1, transition: { duration: 0.3 } },
         exit: { opacity: 0, transition: { duration: 0.3, delay: 0.1 } },
     };
 
-    const drawerVariants: Variants = {
+    const drawerVariants: any = {
         hidden: { x: '100%' },
         visible: { x: 0, transition: { duration: 0.4, ease: [0.2, 0.8, 0.2, 1] } },
         exit: { x: '100%', transition: { duration: 0.3, ease: 'easeIn' } },
@@ -174,18 +174,22 @@ const EquipmentDetailDrawer: React.FC<EquipmentDetailDrawerProps> = ({ equipment
     return (
         <motion.div
             className="fixed inset-0 bg-black/40 z-40 flex justify-end"
-            variants={backdropVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            onClick={onClose}
-            aria-modal="true"
-            role="dialog"
+            {...({
+                variants: backdropVariants,
+                initial: "hidden",
+                animate: "visible",
+                exit: "exit",
+                onClick: onClose,
+                "aria-modal": "true",
+                role: "dialog"
+            } as any)}
         >
             <motion.div
                 className="bg-neutral-card w-full max-w-2xl h-full flex flex-col shadow-2xl"
-                variants={drawerVariants}
-                onClick={(e) => e.stopPropagation()}
+                {...({
+                    variants: drawerVariants,
+                    onClick: (e: any) => e.stopPropagation()
+                } as any)}
             >
                 <header className="p-6 border-b border-neutral-card-alt flex justify-between items-start">
                     <div>

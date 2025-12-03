@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, Variants } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { Equipment } from '../types';
 
@@ -64,13 +64,13 @@ const PriceTableModal: React.FC<PriceTableModalProps> = ({ onClose, onSave, equi
         onSave(updatedEquipment);
     };
 
-    const backdropVariants: Variants = {
+    const backdropVariants: any = {
         hidden: { opacity: 0 },
         visible: { opacity: 1 },
         exit: { opacity: 0 },
     };
 
-    const modalVariants: Variants = {
+    const modalVariants: any = {
         hidden: { opacity: 0, y: 50, scale: 0.95 },
         visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.3, ease: 'easeOut' } },
         exit: { opacity: 0, y: 50, scale: 0.95, transition: { duration: 0.2, ease: 'easeIn' } },
@@ -79,18 +79,22 @@ const PriceTableModal: React.FC<PriceTableModalProps> = ({ onClose, onSave, equi
     return (
         <motion.div
             className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-            variants={backdropVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            onClick={onClose}
-            aria-modal="true"
-            role="dialog"
+            {...({
+                variants: backdropVariants,
+                initial: "hidden",
+                animate: "visible",
+                exit: "exit",
+                onClick: onClose,
+                "aria-modal": "true",
+                role: "dialog"
+            } as any)}
         >
             <motion.div
                 className="bg-neutral-bg rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]"
-                variants={modalVariants}
-                onClick={(e) => e.stopPropagation()}
+                {...({
+                    variants: modalVariants,
+                    onClick: (e: any) => e.stopPropagation()
+                } as any)}
             >
                 <header className="p-6 bg-neutral-card border-b border-neutral-card-alt flex justify-between items-center">
                     <h2 className="text-xl font-bold text-neutral-text-primary">Tabela de Preços de Locação</h2>

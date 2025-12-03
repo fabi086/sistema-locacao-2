@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Search, Edit2, Trash2 } from 'lucide-react';
-import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Equipment, EquipmentStatus, EquipmentCategory } from '../types';
 import EquipmentDetailDrawer from './EquipmentDetailDrawer';
 
@@ -43,12 +43,12 @@ const Equipamentos: React.FC<EquipamentosProps> = ({ equipment, onOpenQuoteModal
         });
     }, [searchTerm, statusFilter, categoryFilter, equipment]);
 
-    const containerVariants: Variants = {
+    const containerVariants: any = {
         hidden: { opacity: 0 },
         visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
     };
 
-    const itemVariants: Variants = {
+    const itemVariants: any = {
         hidden: { y: 20, opacity: 0 },
         visible: { y: 0, opacity: 1, transition: { duration: 0.3, ease: 'easeOut' } }
     };
@@ -112,9 +112,11 @@ const Equipamentos: React.FC<EquipamentosProps> = ({ equipment, onOpenQuoteModal
 
                 <motion.div 
                     className="bg-neutral-card rounded-lg shadow-sm overflow-hidden"
-                    initial="hidden"
-                    animate="visible"
-                    variants={containerVariants}
+                    {...({
+                        initial: "hidden",
+                        animate: "visible",
+                        variants: containerVariants
+                    } as any)}
                 >
                     <table className="w-full text-left text-sm table-fixed">
                         <thead className="bg-neutral-card-alt text-neutral-text-secondary font-semibold">
@@ -127,12 +129,12 @@ const Equipamentos: React.FC<EquipamentosProps> = ({ equipment, onOpenQuoteModal
                                 <th className="p-4 text-center w-[80px]">Ações</th>
                             </tr>
                         </thead>
-                        <motion.tbody variants={containerVariants}>
+                        <motion.tbody {...({ variants: containerVariants } as any)}>
                             {filteredEquipment.map(eq => (
                                 <motion.tr 
                                     key={eq.id} 
                                     className="border-b border-neutral-card-alt hover:bg-neutral-bg" 
-                                    variants={itemVariants}
+                                    {...({ variants: itemVariants } as any)}
                                 >
                                     <td className="p-4 font-semibold text-neutral-text-primary cursor-pointer break-words" onClick={() => handleRowClick(eq)}>{eq.name}</td>
                                     <td className="p-4 text-neutral-text-secondary cursor-pointer break-words" onClick={() => handleRowClick(eq)}>{eq.category}</td>

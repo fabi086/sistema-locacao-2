@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, Variants } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Users, FileText, BadgeDollarSign, Plug } from 'lucide-react';
 
 interface SettingsCardData {
@@ -45,7 +45,7 @@ const settingsCards: SettingsCardData[] = [
     }
 ];
 
-const cardVariants: Variants = {
+const cardVariants: any = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } }
 };
@@ -74,16 +74,18 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onOpenPriceTableModal, se
 
             <motion.div 
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-                initial="hidden"
-                animate="visible"
-                variants={{
-                    visible: { transition: { staggerChildren: 0.1 } }
-                }}
+                {...({
+                    initial: "hidden",
+                    animate: "visible",
+                    variants: {
+                        visible: { transition: { staggerChildren: 0.1 } }
+                    }
+                } as any)}
             >
                 {settingsCards.map((card, index) => {
                     const Icon = card.icon;
                     return (
-                        <motion.div key={index} variants={cardVariants} className="bg-neutral-card p-6 rounded-lg shadow-sm flex flex-col">
+                        <motion.div key={index} {...({ variants: cardVariants } as any)} className="bg-neutral-card p-6 rounded-lg shadow-sm flex flex-col">
                             <div className="flex items-center gap-4 mb-4">
                                 <div className="bg-primary/10 p-3 rounded-lg">
                                     <Icon size={24} className="text-primary" />

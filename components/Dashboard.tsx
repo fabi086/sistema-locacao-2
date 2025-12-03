@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { DollarSign, Percent, HardHat, Wrench, Plus, ChevronDown } from 'lucide-react';
-import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import KpiCard from './KpiCard';
 import RevenueChart from './RevenueChart';
 import { Activity, Client, Kpi, RevenueData, Equipment, MaintenanceOrder, RentalOrder } from '../types';
@@ -122,7 +122,7 @@ const Dashboard: React.FC<{
             .slice(0,3);
 
         return relevantOrders.map(o => {
-            let statusText = o.status;
+            let statusText: string = o.status;
             let color = 'bg-gray-500';
 
             if(o.status === 'Em Rota') {
@@ -200,7 +200,7 @@ const Dashboard: React.FC<{
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const containerVariants: Variants = {
+    const containerVariants: any = {
         hidden: { opacity: 0 },
         visible: {
             opacity: 1,
@@ -210,7 +210,7 @@ const Dashboard: React.FC<{
         }
     };
 
-    const dropdownVariants: Variants = {
+    const dropdownVariants: any = {
         hidden: { opacity: 0, scale: 0.95, y: -10 },
         visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' } },
         exit: { opacity: 0, scale: 0.95, y: -10, transition: { duration: 0.15, ease: 'easeIn' } }
@@ -233,10 +233,12 @@ const Dashboard: React.FC<{
                             {isDateFilterOpen && (
                                 <motion.div 
                                     className="absolute right-0 mt-2 w-48 bg-neutral-card rounded-lg shadow-lg py-1 z-10 border border-gray-200"
-                                    variants={dropdownVariants}
-                                    initial="hidden"
-                                    animate="visible"
-                                    exit="exit"
+                                    {...({
+                                        variants: dropdownVariants,
+                                        initial: "hidden",
+                                        animate: "visible",
+                                        exit: "exit"
+                                    } as any)}
                                 >
                                     {periods.map(period => (
                                         <button 
@@ -260,9 +262,11 @@ const Dashboard: React.FC<{
 
             <motion.div 
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
+                {...({
+                    variants: containerVariants,
+                    initial: "hidden",
+                    animate: "visible"
+                } as any)}
             >
                 {kpiData.map((kpi, index) => (
                     <KpiCard key={index} {...kpi} />

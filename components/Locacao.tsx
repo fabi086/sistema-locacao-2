@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Printer, Edit2, Trash2, LayoutGrid, List } from 'lucide-react';
 import { Equipment, RentalOrder, RentalStatus, Customer } from '../types';
 import OrderCard from './OrderCard';
@@ -129,12 +129,12 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
     );
     
     const renderTableView = () => {
-         const containerVariants: Variants = {
+         const containerVariants: any = {
             hidden: { opacity: 0 },
             visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
         };
 
-        const itemVariants: Variants = {
+        const itemVariants: any = {
             hidden: { y: 20, opacity: 0 },
             visible: { y: 0, opacity: 1, transition: { duration: 0.3, ease: 'easeOut' } }
         };
@@ -163,7 +163,11 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                 </div>
                  <motion.div 
                     className="bg-neutral-card rounded-lg shadow-sm overflow-x-auto"
-                    initial="hidden" animate="visible" variants={containerVariants}
+                    {...({
+                        initial: "hidden",
+                        animate: "visible",
+                        variants: containerVariants
+                    } as any)}
                 >
                     <table className="w-full text-left text-sm">
                         <thead className="bg-neutral-card-alt text-neutral-text-secondary font-semibold">
@@ -176,9 +180,9 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                                 <th className="p-4 text-center">Ações</th>
                             </tr>
                         </thead>
-                        <motion.tbody variants={containerVariants}>
+                        <motion.tbody {...({ variants: containerVariants } as any)}>
                             {filteredOrdersForTable.map(order => (
-                                <motion.tr key={order.id} className="border-b border-neutral-card-alt hover:bg-neutral-bg" variants={itemVariants}>
+                                <motion.tr key={order.id} className="border-b border-neutral-card-alt hover:bg-neutral-bg" {...({ variants: itemVariants } as any)}>
                                     <td className="p-4 font-semibold text-primary cursor-pointer" onClick={() => setSelectedOrder(order)}>{order.id}</td>
                                     <td className="p-4 text-neutral-text-primary font-medium">{order.client}</td>
                                     <td className="p-4 text-neutral-text-secondary hidden md:table-cell">{new Date(order.createdDate + 'T00:00:00').toLocaleDateString('pt-BR')}</td>

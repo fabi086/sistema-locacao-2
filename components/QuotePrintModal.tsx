@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, Variants } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { X, Printer, HardHat } from 'lucide-react';
 import { RentalOrder } from '../types';
 
@@ -9,13 +9,13 @@ const QuotePrintModal: React.FC<{ quote: RentalOrder; onClose: () => void }> = (
         window.print();
     };
     
-    const backdropVariants: Variants = {
+    const backdropVariants: any = {
         hidden: { opacity: 0 },
         visible: { opacity: 1 },
         exit: { opacity: 0 },
     };
 
-    const modalVariants: Variants = {
+    const modalVariants: any = {
         hidden: { opacity: 0, scale: 0.95 },
         visible: { opacity: 1, scale: 1, transition: { duration: 0.3, ease: 'easeOut' } },
         exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2, ease: 'easeIn' } },
@@ -27,16 +27,20 @@ const QuotePrintModal: React.FC<{ quote: RentalOrder; onClose: () => void }> = (
     return (
         <motion.div
             className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:bg-white"
-            variants={backdropVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            onClick={onClose}
+            {...({
+                variants: backdropVariants,
+                initial: "hidden",
+                animate: "visible",
+                exit: "exit",
+                onClick: onClose
+            } as any)}
         >
             <motion.div
                 className="bg-neutral-bg rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[95vh] print:shadow-none print:max-h-full print:bg-white"
-                variants={modalVariants}
-                onClick={(e) => e.stopPropagation()}
+                {...({
+                    variants: modalVariants,
+                    onClick: (e: any) => e.stopPropagation()
+                } as any)}
             >
                 <header className="p-4 bg-neutral-card-alt flex justify-between items-center no-print">
                     <h2 className="text-lg font-bold text-neutral-text-primary">Pré-visualização: {quote.id}</h2>

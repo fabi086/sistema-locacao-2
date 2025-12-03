@@ -6,9 +6,11 @@ const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => {
   return (
     <motion.div 
       className="flex flex-col items-center justify-center h-full text-center p-8 bg-neutral-bg"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+      {...({
+          initial: { opacity: 0, y: 20 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.5 }
+      } as any)}
     >
       <div className="p-6 bg-secondary/10 rounded-full mb-6">
         <FileCode2 size={48} className="text-secondary" />

@@ -1,3 +1,4 @@
+
 import type { LucideIcon } from 'lucide-react';
 
 export interface Kpi {
@@ -45,6 +46,7 @@ export interface MaintenanceRecord {
 
 export interface Equipment {
     id: string;
+    tenant_id?: string;
     name: string;
     category: EquipmentCategory;
     serialNumber: string;
@@ -75,6 +77,7 @@ export interface EquipmentOrderItem {
 
 export interface RentalOrder {
     id: string;
+    tenant_id?: string;
     client: string;
     equipmentItems: EquipmentOrderItem[];
     startDate: string;
@@ -95,6 +98,7 @@ export type QuoteStatus = 'Pendente' | 'Aprovado' | 'Recusado';
 
 export interface Quote {
     id: string;
+    tenant_id?: string;
     client: string;
     equipment: string;
     startDate: string;
@@ -109,6 +113,7 @@ export type CustomerStatus = 'Ativo' | 'Inativo';
 
 export interface Customer {
     id: string;
+    tenant_id?: string;
     name: string;
     document: string; // CNPJ ou CPF
     email: string;
@@ -121,6 +126,7 @@ export type ContractStatus = 'Pendente' | 'Ativo' | 'Vencido';
 
 export interface Contract {
     id: string;
+    tenant_id?: string;
     client: string;
     startDate: string;
     endDate: string;
@@ -142,6 +148,7 @@ export type MaintenanceType = 'Preventiva' | 'Corretiva';
 
 export interface MaintenanceOrder {
     id: string;
+    tenant_id?: string;
     equipment: string;
     type: MaintenanceType;
     status: MaintenanceStatus;
@@ -154,6 +161,7 @@ export type UserStatus = 'Ativo' | 'Inativo';
 
 export interface User {
     id: string;
+    tenant_id?: string;
     name: string;
     email: string;
     role: UserRole;

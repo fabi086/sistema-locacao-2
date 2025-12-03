@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dashboard from './components/Dashboard';
 import PlaceholderPage from './components/PlaceholderPage';
@@ -12,7 +13,7 @@ import Manutencao from './components/Manutencao';
 import Usuarios from './components/Usuarios';
 import AddClientModal from './components/AddClientModal';
 import { Equipment, Customer, User, RentalOrder, RentalStatus, MaintenanceOrder, MaintenanceStatus } from './types';
-import { Truck, Wrench, FileText, Users, Building, Calendar, Settings, HardHat, LogOut, ChevronLeft, LayoutDashboard, Menu, ClipboardList } from 'lucide-react';
+import { Truck, Wrench, FileText, Users, Building, Calendar, Settings, HardHat, LogOut, ChevronLeft, LayoutDashboard, Menu, ClipboardList, Loader2 } from 'lucide-react';
 import AddEquipmentModal from './components/AddEquipmentModal';
 import ConfirmationModal from './components/ConfirmationModal';
 import Configuracoes from './components/Configuracoes';
@@ -23,45 +24,8 @@ import AddMaintenanceModal from './components/AddMaintenanceModal';
 import QuotePrintModal from './components/QuotePrintModal';
 import Login from './components/Login';
 import Orcamentos from './components/Orcamentos';
-
-const initialEquipment: Equipment[] = [
-    { id: 'EQP-001', name: 'Escavadeira CAT 320D', category: 'Escavadeiras', serialNumber: 'CAT-12345', status: 'Disponível', location: 'Pátio A', pricing: { daily: 1200, weekly: 7000, biweekly: 13000, monthly: 24000 } },
-    { id: 'EQP-002', name: 'Betoneira CSM 400L', category: 'Betoneiras', serialNumber: 'CSM-67890', status: 'Em Uso', location: 'Obra Beta', pricing: { daily: 150, weekly: 900, biweekly: 1600, monthly: 3000 } },
-    { id: 'EQP-003', name: 'Guindaste Liebherr LTM 1050', category: 'Guindastes', serialNumber: 'LTM-11223', status: 'Manutenção', location: 'Oficina', pricing: { daily: 2500, weekly: 15000, biweekly: 28000, monthly: 50000 } },
-    { id: 'EQP-004', name: 'Andaimes Tubulares (Lote 20)', category: 'Andaimes', serialNumber: 'AND-L20', status: 'Disponível', location: 'Pátio B', pricing: { daily: 50, weekly: 300, biweekly: 550, monthly: 1000 } },
-    { id: 'EQP-005', name: 'Escavadeira Komatsu PC200', category: 'Escavadeiras', serialNumber: 'KOM-54321', status: 'Disponível', location: 'Pátio A', pricing: { daily: 1100, weekly: 6500, biweekly: 12000, monthly: 22000 } },
-    { id: 'EQP-006', name: 'Betoneira Menegotti 150L', category: 'Betoneiras', serialNumber: 'MEN-98765', status: 'Disponível', location: 'Pátio C', pricing: { daily: 100, weekly: 600, biweekly: 1100, monthly: 2000 } }
-];
-
-const initialClients: Customer[] = [
-    { id: 'CLI-001', name: 'Construtora Alfa', document: '11.111.111/0001-11', email: 'contato@alfa.com', phone: '(11) 99999-1111', address: 'Rua das Obras, 1', status: 'Ativo' },
-    { id: 'CLI-002', name: 'Engenharia Beta', document: '22.222.222/0001-22', email: 'contato@beta.com', phone: '(11) 99999-2222', address: 'Av. Principal, 2', status: 'Ativo' },
-    { id: 'CLI-003', name: 'Obras Gamma', document: '33.333.333/0001-33', email: 'contato@gamma.com', phone: '(11) 99999-3333', address: 'Praça Central, 3', status: 'Inativo' },
-    { id: 'CLI-004', name: 'Projetos Delta', document: '44.444.444/0001-44', email: 'contato@delta.com', phone: '(11) 99999-4444', address: 'Estrada Longa, 4', status: 'Ativo' }
-];
-
-const initialUsers: User[] = [
-    { id: 'USR-001', name: 'Admin Geral', email: 'admin@obrafacil.com', role: 'Admin', status: 'Ativo', lastLogin: '2024-07-29' },
-    { id: 'USR-002', name: 'Carlos Comercial', email: 'carlos@obrafacil.com', role: 'Comercial', status: 'Ativo', lastLogin: '2024-07-29' },
-    { id: 'USR-003', name: 'Fernanda Financeiro', email: 'fernanda@obrafacil.com', role: 'Financeiro', status: 'Inativo', lastLogin: '2024-06-15' }
-];
-
-const initialRentalOrders: RentalOrder[] = [
-    { id: 'ORC-001', client: 'Construtora Alfa', equipmentItems: [{ equipmentId: 'EQP-001', equipmentName: 'Escavadeira CAT 320D', value: 15000 }], startDate: '2024-07-31', endDate: '2024-08-11', value: 15000, status: 'Aprovado', statusHistory: [{ status: 'Proposta', date: '2024-07-25' }, { status: 'Aprovado', date: '2024-07-26' }], createdDate: '2024-07-25', validUntil: '2024-08-09' },
-    { id: 'ORC-002', client: 'Engenharia Beta', equipmentItems: [{ equipmentId: 'EQP-002', equipmentName: 'Betoneira CSM 400L', value: 2500 }], startDate: '2024-08-04', endDate: '2024-08-09', value: 2500, status: 'Reservado', deliveryDate: '2024-08-03', statusHistory: [{ status: 'Proposta', date: '2024-07-28' }, { status: 'Aprovado', date: '2024-07-29' }, { status: 'Reservado', date: '2024-07-30' }], createdDate: '2024-07-28', validUntil: '2024-08-12' },
-    { id: 'ORC-003', client: 'Obras Gamma', equipmentItems: [{ equipmentId: 'EQP-003', equipmentName: 'Guindaste Liebherr LTM 1050', value: 25000 }], startDate: '2024-08-15', endDate: '2024-08-25', value: 25000, status: 'Ativo', deliveryDate: '2024-08-15', statusHistory: [{ status: 'Proposta', date: '2024-08-01' }, { status: 'Aprovado', date: '2024-08-02' }, { status: 'Reservado', date: '2024-08-05' }, { status: 'Em Rota', date: '2024-08-15' }, { status: 'Ativo', date: '2024-08-15' }], createdDate: '2024-08-01', validUntil: '2024-08-16' },
-    { id: 'ORC-004', client: 'Projetos Delta', equipmentItems: [{ equipmentId: 'EQP-004', equipmentName: 'Andaimes Tubulares (Lote 20)', value: 7500 }], startDate: '2024-08-14', endDate: '2024-09-12', value: 7500, status: 'Proposta', statusHistory: [{ status: 'Proposta', date: '2024-08-05' }], createdDate: '2024-08-05', validUntil: '2024-08-20' },
-    { id: 'ORC-005', client: 'Construtora Alfa', equipmentItems: [{ equipmentId: 'EQP-006', equipmentName: 'Betoneira Menegotti 150L', value: 2000 }], startDate: '2024-09-01', endDate: '2024-09-30', value: 2000, status: 'Recusado', statusHistory: [{ status: 'Proposta', date: '2024-08-10' }, { status: 'Recusado', date: '2024-08-12' }], createdDate: '2024-08-10', validUntil: '2024-08-25' },
-];
-
-const initialMaintenanceOrders: MaintenanceOrder[] = [
-    { id: 'OS-001', equipment: 'Escavadeira CAT 320D', type: 'Corretiva', status: 'Concluída', cost: 2500.00, scheduledDate: '2024-07-10' },
-    { id: 'OS-002', equipment: 'Guindaste Liebherr LTM 1050', type: 'Preventiva', status: 'Em Andamento', cost: 1200.00, scheduledDate: '2024-08-10' },
-    { id: 'OS-003', equipment: 'Betoneira CSM 400L', type: 'Preventiva', status: 'Pendente', cost: 450.00, scheduledDate: '2024-08-15' },
-    { id: 'OS-004', equipment: 'Betoneira Menegotti 150L', type: 'Corretiva', status: 'Concluída', cost: 780.50, scheduledDate: '2024-07-22' },
-    { id: 'OS-005', equipment: 'Escavadeira Komatsu PC200', type: 'Preventiva', status: 'Pendente', cost: 900.00, scheduledDate: '2024-08-20' },
-];
-
+import Integracoes from './components/Integracoes';
+import { supabase } from './supabaseClient';
 
 const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard' },
@@ -103,10 +67,12 @@ const Sidebar: React.FC<{
                 {isOpen && (
                     <motion.div
                         className="fixed inset-0 bg-black/60 z-30 md:hidden"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={() => setIsOpen(false)}
+                        {...({
+                            initial: { opacity: 0 },
+                            animate: { opacity: 1 },
+                            exit: { opacity: 0 },
+                            onClick: () => setIsOpen(false)
+                        } as any)}
                     />
                 )}
             </AnimatePresence>
@@ -163,32 +129,35 @@ const Sidebar: React.FC<{
 
 const App: React.FC = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isLoadingAuth, setIsLoadingAuth] = useState(true);
     const [activePage, setActivePage] = useState<Page>('Dashboard');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [loadingData, setLoadingData] = useState(false);
+    const [tenantId, setTenantId] = useState<string | null>(null);
     
-    // Client State Management
-    const [clients, setClients] = useState<Customer[]>(initialClients);
+    // State Management
+    const [clients, setClients] = useState<Customer[]>([]);
+    const [allEquipment, setAllEquipment] = useState<Equipment[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
+    const [rentalOrders, setRentalOrders] = useState<RentalOrder[]>([]);
+    const [maintenanceOrders, setMaintenanceOrders] = useState<MaintenanceOrder[]>([]);
+
+    // Modals & UI State
     const [isAddEditClientModalOpen, setAddEditClientModalOpen] = useState(false);
     const [clientToEdit, setClientToEdit] = useState<Customer | null>(null);
     const [isDeleteClientModalOpen, setDeleteClientModalOpen] = useState(false);
     const [clientToDelete, setClientToDelete] = useState<Customer | null>(null);
     
-    // Equipment State Management
-    const [allEquipment, setAllEquipment] = useState<Equipment[]>(initialEquipment);
     const [isAddEditEquipmentModalOpen, setAddEditEquipmentModalOpen] = useState(false);
     const [equipmentToEdit, setEquipmentToEdit] = useState<Equipment | null>(null);
     const [isDeleteEquipmentModalOpen, setDeleteEquipmentModalOpen] = useState(false);
     const [equipmentToDelete, setEquipmentToDelete] = useState<Equipment | null>(null);
 
-    // User State Management
-    const [users, setUsers] = useState<User[]>(initialUsers);
     const [isAddEditUserModalOpen, setAddEditUserModalOpen] = useState(false);
     const [userToEdit, setUserToEdit] = useState<User | null>(null);
     const [isDeleteUserModalOpen, setDeleteUserModalOpen] = useState(false);
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
-    // Unified Rental Order State Management
-    const [rentalOrders, setRentalOrders] = useState<RentalOrder[]>(initialRentalOrders);
     const [isAddEditOrderModalOpen, setAddEditOrderModalOpen] = useState(false);
     const [equipmentForOrder, setEquipmentForOrder] = useState<Equipment | null>(null);
     const [orderToEdit, setOrderToEdit] = useState<RentalOrder | null>(null);
@@ -198,15 +167,109 @@ const App: React.FC = () => {
     const [orderToSchedule, setOrderToSchedule] = useState<RentalOrder | null>(null);
     const [orderToPrint, setOrderToPrint] = useState<RentalOrder | null>(null);
 
-    // Maintenance State Management
-    const [maintenanceOrders, setMaintenanceOrders] = useState<MaintenanceOrder[]>(initialMaintenanceOrders);
     const [isAddEditMaintenanceModalOpen, setAddEditMaintenanceModalOpen] = useState(false);
     const [maintenanceOrderToEdit, setMaintenanceOrderToEdit] = useState<MaintenanceOrder | null>(null);
     const [isDeleteMaintenanceModalOpen, setDeleteMaintenanceModalOpen] = useState(false);
     const [maintenanceOrderToDelete, setMaintenanceOrderToDelete] = useState<MaintenanceOrder | null>(null);
 
-    // Pricing State Management
     const [isPriceTableModalOpen, setPriceTableModalOpen] = useState(false);
+
+    // Initial Data Fetch
+    const fetchAllData = async () => {
+        if (!supabase) return;
+        setLoadingData(true);
+        try {
+            // RLS will automatically filter these by tenant_id on the server side
+            // We select * to get all columns
+            const [eqRes, cliRes, userRes, orderRes, maintRes] = await Promise.all([
+                supabase.from('equipments').select('*'),
+                supabase.from('clients').select('*'),
+                supabase.from('users').select('*'),
+                supabase.from('rental_orders').select('*'),
+                supabase.from('maintenance_orders').select('*'),
+            ]);
+
+            if (eqRes.data) setAllEquipment(eqRes.data);
+            if (cliRes.data) setClients(cliRes.data);
+            if (userRes.data) setUsers(userRes.data);
+            if (orderRes.data) setRentalOrders(orderRes.data);
+            if (maintRes.data) setMaintenanceOrders(maintRes.data);
+
+        } catch (error) {
+            console.error("Erro ao carregar dados:", error);
+        } finally {
+            setLoadingData(false);
+        }
+    };
+    
+    const handleLogout = async () => {
+        if (supabase) await supabase.auth.signOut();
+        setIsAuthenticated(false);
+        setTenantId(null);
+        // Clear local state
+        setClients([]);
+        setAllEquipment([]);
+        setUsers([]);
+        setRentalOrders([]);
+        setMaintenanceOrders([]);
+    };
+
+    // Load User and Tenant Info
+    useEffect(() => {
+        const loadUserTenant = async (retries = 3) => {
+            if(!isAuthenticated || !supabase) return;
+            
+            const { data: { user } } = await supabase.auth.getUser();
+            if(user) {
+                // Fetch profile to get tenant_id
+                const { data: profile, error } = await supabase.from('users').select('tenant_id').eq('auth_id', user.id).single();
+                
+                if(profile) {
+                    setTenantId(profile.tenant_id);
+                    fetchAllData(); // Fetch data only after we know the user is linked to a tenant
+                } else {
+                    console.log(`Perfil de usuário não encontrado. Tentativas restantes: ${retries}`);
+                    if (retries > 0) {
+                        setTimeout(() => loadUserTenant(retries - 1), 1000);
+                    } else {
+                         console.error("Erro crítico: Perfil não encontrado após várias tentativas.");
+                         alert("Erro: Perfil de usuário não encontrado. Se você resetou o banco de dados, sua conta de login ainda existe mas seus dados foram apagados. Crie uma nova conta com um email diferente.");
+                         handleLogout();
+                    }
+                }
+            }
+        }
+
+        if (isAuthenticated) {
+            loadUserTenant();
+        }
+    }, [isAuthenticated]);
+
+    // Auth Check
+    useEffect(() => {
+        if (!supabase) {
+            setIsLoadingAuth(false);
+            return;
+        }
+
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            setIsAuthenticated(!!session);
+            setIsLoadingAuth(false);
+        };
+
+        checkSession();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setIsAuthenticated(!!session);
+            if (!session) {
+                setTenantId(null);
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
 
     // Filtered orders for specific views
     const quotes = useMemo(() => rentalOrders.filter(o => o.status === 'Proposta' || o.status === 'Recusado'), [rentalOrders]);
@@ -241,17 +304,40 @@ const App: React.FC = () => {
         setAddEditClientModalOpen(true);
     };
 
-    const handleSaveClient = (clientData: Omit<Customer, 'id' | 'status'> | Customer) => {
-        if ('id' in clientData && clientData.id) { // Update
-            setClients(prev => prev.map(c => c.id === clientData.id ? { ...c, ...clientData } : c));
-        } else { // Create
-            const maxId = clients.reduce((max, c) => Math.max(max, parseInt(c.id.split('-')[1])), 0);
-            const newId = `CLI-${(maxId + 1).toString().padStart(3, '0')}`;
-            const newClient: Customer = { ...clientData, id: newId, status: 'Ativo' };
-            setClients(prev => [newClient, ...prev]);
+    const handleSaveClient = async (clientData: Omit<Customer, 'id' | 'status'> | Customer) => {
+        if (!supabase || !tenantId) {
+            alert("Erro: Sessão inválida ou tenant não encontrado. Faça login novamente.");
+            return;
         }
-        setAddEditClientModalOpen(false);
-        setClientToEdit(null);
+        
+        let savedData: Customer | null = null;
+
+        if ('id' in clientData && clientData.id) { // Update
+            const { data, error } = await supabase.from('clients').update(clientData).eq('id', clientData.id).select().single();
+            if (!error && data) savedData = data;
+        } else { // Create
+            const maxId = clients.reduce((max, c) => Math.max(max, parseInt(c.id.split('-')[1] || '0')), 0);
+            const newId = `CLI-${(maxId + 1).toString().padStart(3, '0')}`;
+            const newClient = { 
+                ...clientData, 
+                id: newId, 
+                status: 'Ativo',
+                tenant_id: tenantId 
+            };
+            
+            const { data, error } = await supabase.from('clients').insert(newClient).select().single();
+            if (!error && data) savedData = data;
+            else console.error("Erro ao salvar cliente:", error);
+        }
+
+        if (savedData) {
+            setClients(prev => {
+                const exists = prev.find(c => c.id === savedData!.id);
+                return exists ? prev.map(c => c.id === savedData!.id ? savedData! : c) : [savedData!, ...prev];
+            });
+            setAddEditClientModalOpen(false);
+            setClientToEdit(null);
+        }
     };
     
     const handleOpenDeleteClientModal = (client: Customer) => {
@@ -259,11 +345,14 @@ const App: React.FC = () => {
         setDeleteClientModalOpen(true);
     };
     
-    const handleDeleteClient = () => {
-        if (clientToDelete) {
-            setClients(prev => prev.filter(c => c.id !== clientToDelete.id));
-            setDeleteClientModalOpen(false);
-            setClientToDelete(null);
+    const handleDeleteClient = async () => {
+        if (clientToDelete && supabase) {
+            const { error } = await supabase.from('clients').delete().eq('id', clientToDelete.id);
+            if (!error) {
+                setClients(prev => prev.filter(c => c.id !== clientToDelete.id));
+                setDeleteClientModalOpen(false);
+                setClientToDelete(null);
+            }
         }
     };
     
@@ -278,17 +367,36 @@ const App: React.FC = () => {
         setAddEditEquipmentModalOpen(true);
     };
     
-    const handleSaveEquipment = (equipmentData: Omit<Equipment, 'id'> | Equipment) => {
+    const handleSaveEquipment = async (equipmentData: Omit<Equipment, 'id'> | Equipment) => {
+        if (!supabase || !tenantId) return;
+
+        let savedData: Equipment | null = null;
+
         if ('id' in equipmentData && equipmentData.id) { // Update
-            setAllEquipment(prev => prev.map(eq => eq.id === equipmentData.id ? { ...eq, ...equipmentData } as Equipment : eq));
+            const { data, error } = await supabase.from('equipments').update(equipmentData).eq('id', equipmentData.id).select().single();
+             if (!error && data) savedData = data;
         } else { // Create
-            const maxId = allEquipment.reduce((max, eq) => Math.max(max, parseInt(eq.id.split('-')[1])), 0);
+            const maxId = allEquipment.reduce((max, eq) => Math.max(max, parseInt(eq.id.split('-')[1] || '0')), 0);
             const newId = `EQP-${(maxId + 1).toString().padStart(3, '0')}`;
-            const newEquipment: Equipment = { ...(equipmentData as Omit<Equipment, 'id'>), id: newId, status: 'Disponível' };
-            setAllEquipment(prev => [newEquipment, ...prev]);
+            const newEquipment = { 
+                ...equipmentData, 
+                id: newId, 
+                status: 'Disponível',
+                tenant_id: tenantId 
+            };
+            const { data, error } = await supabase.from('equipments').insert(newEquipment).select().single();
+             if (!error && data) savedData = data;
+             else console.error(error);
         }
-        setAddEditEquipmentModalOpen(false);
-        setEquipmentToEdit(null);
+
+        if (savedData) {
+            setAllEquipment(prev => {
+                 const exists = prev.find(e => e.id === savedData!.id);
+                 return exists ? prev.map(e => e.id === savedData!.id ? savedData! : e) : [savedData!, ...prev];
+            });
+            setAddEditEquipmentModalOpen(false);
+            setEquipmentToEdit(null);
+        }
     };
 
     const handleOpenDeleteEquipmentModal = (equipment: Equipment) => {
@@ -296,11 +404,14 @@ const App: React.FC = () => {
         setDeleteEquipmentModalOpen(true);
     };
 
-    const handleDeleteEquipment = () => {
-        if (equipmentToDelete) {
-            setAllEquipment(prev => prev.filter(eq => eq.id !== equipmentToDelete.id));
-            setDeleteEquipmentModalOpen(false);
-            setEquipmentToDelete(null);
+    const handleDeleteEquipment = async () => {
+        if (equipmentToDelete && supabase) {
+            const { error } = await supabase.from('equipments').delete().eq('id', equipmentToDelete.id);
+            if (!error) {
+                setAllEquipment(prev => prev.filter(eq => eq.id !== equipmentToDelete.id));
+                setDeleteEquipmentModalOpen(false);
+                setEquipmentToDelete(null);
+            }
         }
     };
 
@@ -315,17 +426,36 @@ const App: React.FC = () => {
         setAddEditUserModalOpen(true);
     };
 
-    const handleSaveUser = (userData: Omit<User, 'id' | 'lastLogin'> | User) => {
+    const handleSaveUser = async (userData: Omit<User, 'id' | 'lastLogin'> | User) => {
+        if (!supabase || !tenantId) return;
+        
+        let savedData: User | null = null;
+
         if ('id' in userData && userData.id) { // Update
-            setUsers(prev => prev.map(u => u.id === userData.id ? { ...u, ...userData } : u));
+            const { data, error } = await supabase.from('users').update(userData).eq('id', userData.id).select().single();
+             if (!error && data) savedData = data;
         } else { // Create
-             const maxId = users.reduce((max, u) => Math.max(max, parseInt(u.id.split('-')[1])), 0);
+             const maxId = users.reduce((max, u) => Math.max(max, parseInt(u.id.split('-')[1] || '0')), 0);
              const newId = `USR-${(maxId + 1).toString().padStart(3, '0')}`;
-             const newUser: User = { ...userData, id: newId, lastLogin: new Date().toISOString() };
-             setUsers(prev => [newUser, ...prev]);
+             const newUser = { 
+                 ...userData, 
+                 id: newId, 
+                 lastLogin: new Date().toISOString(),
+                 tenant_id: tenantId 
+            };
+            // Note: In a real app, you would also create the Auth user here or trigger an invite.
+             const { data, error } = await supabase.from('users').insert(newUser).select().single();
+             if (!error && data) savedData = data;
         }
-        setAddEditUserModalOpen(false);
-        setUserToEdit(null);
+
+        if (savedData) {
+            setUsers(prev => {
+                const exists = prev.find(u => u.id === savedData!.id);
+                return exists ? prev.map(u => u.id === savedData!.id ? savedData! : u) : [savedData!, ...prev];
+            });
+            setAddEditUserModalOpen(false);
+            setUserToEdit(null);
+        }
     };
     
     const handleOpenDeleteUserModal = (user: User) => {
@@ -333,42 +463,62 @@ const App: React.FC = () => {
         setDeleteUserModalOpen(true);
     };
     
-    const handleDeleteUser = () => {
-        if (userToDelete) {
-            setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
-            setDeleteUserModalOpen(false);
-            setUserToDelete(null);
+    const handleDeleteUser = async () => {
+        if (userToDelete && supabase) {
+            const { error } = await supabase.from('users').delete().eq('id', userToDelete.id);
+             if (!error) {
+                setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
+                setDeleteUserModalOpen(false);
+                setUserToDelete(null);
+             }
         }
     };
     
     // Pricing Handlers
     const handleOpenPriceTableModal = () => setPriceTableModalOpen(true);
 
-    const handleSavePrices = (updatedEquipmentList: Equipment[]) => {
+    const handleSavePrices = async (updatedEquipmentList: Equipment[]) => {
+        if (!supabase) return;
+        
+        const updates = updatedEquipmentList.map(eq => 
+            supabase!.from('equipments').update({ pricing: eq.pricing }).eq('id', eq.id)
+        );
+        
+        await Promise.all(updates);
         setAllEquipment(updatedEquipmentList);
         setPriceTableModalOpen(false);
     };
 
     // Rental Order Handlers
-    const handleSaveOrder = (orderData: Omit<RentalOrder, 'id' | 'status' | 'statusHistory'> | RentalOrder, onSuccess?: (savedOrder: RentalOrder) => void) => {
+    const handleSaveOrder = async (orderData: Omit<RentalOrder, 'id' | 'status' | 'statusHistory'> | RentalOrder, onSuccess?: (savedOrder: RentalOrder) => void) => {
+        if (!supabase || !tenantId) return;
+
+        let savedData: RentalOrder | null = null;
+
         if ('id' in orderData && orderData.id) { // Update
-            setRentalOrders(prev => prev.map(o => o.id === orderData.id ? { ...o, ...orderData } : o));
-            handleCloseOrderModal(); // Close on edit
+            const { data, error } = await supabase.from('rental_orders').update(orderData).eq('id', orderData.id).select().single();
+            if (!error && data) savedData = data;
         } else { // Create
             const maxId = rentalOrders.reduce((max, q) => Math.max(max, parseInt(q.id.split('-')[1] || '0')), 0);
             const newId = `ORC-${(maxId + 1).toString().padStart(3, '0')}`;
-            const newOrder: RentalOrder = {
-                ...(orderData as Omit<RentalOrder, 'id' | 'status' | 'statusHistory'>),
+            const newOrder = {
+                ...orderData,
                 id: newId,
                 status: 'Proposta',
-                statusHistory: [{ status: 'Proposta', date: orderData.createdDate }]
+                statusHistory: [{ status: 'Proposta', date: (orderData as any).createdDate }],
+                tenant_id: tenantId
             };
-            setRentalOrders(prev => [newOrder, ...prev]);
-            if (onSuccess) {
-                onSuccess(newOrder);
-            } else {
-                handleCloseOrderModal(); // Fallback to close if no success handler
-            }
+            const { data, error } = await supabase.from('rental_orders').insert(newOrder).select().single();
+            if (!error && data) savedData = data;
+        }
+
+        if (savedData) {
+            setRentalOrders(prev => {
+                const exists = prev.find(o => o.id === savedData!.id);
+                return exists ? prev.map(o => o.id === savedData!.id ? savedData! : o) : [savedData!, ...prev];
+            });
+            if (onSuccess) onSuccess(savedData);
+            else handleCloseOrderModal();
         }
     };
     
@@ -377,25 +527,35 @@ const App: React.FC = () => {
         setDeleteOrderModalOpen(true);
     };
     
-    const handleDeleteOrder = () => {
-        if (orderToDelete) {
-            setRentalOrders(prev => prev.filter(q => q.id !== orderToDelete.id));
-            setDeleteOrderModalOpen(false);
-            setOrderToDelete(null);
+    const handleDeleteOrder = async () => {
+        if (orderToDelete && supabase) {
+            const { error } = await supabase.from('rental_orders').delete().eq('id', orderToDelete.id);
+            if (!error) {
+                setRentalOrders(prev => prev.filter(q => q.id !== orderToDelete.id));
+                setDeleteOrderModalOpen(false);
+                setOrderToDelete(null);
+            }
         }
     };
 
-    const handleUpdateOrderStatus = (orderId: string, newStatus: RentalStatus) => {
-        setRentalOrders(prev => prev.map(order => {
-            if (order.id === orderId) {
-                return {
-                    ...order,
-                    status: newStatus,
-                    statusHistory: [...order.statusHistory, { status: newStatus, date: new Date().toISOString() }]
-                };
-            }
-            return order;
-        }));
+    const handleUpdateOrderStatus = async (orderId: string, newStatus: RentalStatus) => {
+        if (!supabase) return;
+        
+        const order = rentalOrders.find(o => o.id === orderId);
+        if (!order) return;
+
+        const newHistory = [...order.statusHistory, { status: newStatus, date: new Date().toISOString() }];
+        
+        const { data, error } = await supabase
+            .from('rental_orders')
+            .update({ status: newStatus, statusHistory: newHistory })
+            .eq('id', orderId)
+            .select()
+            .single();
+
+        if (!error && data) {
+            setRentalOrders(prev => prev.map(o => o.id === orderId ? data : o));
+        }
     };
 
     const handleOpenScheduleDeliveryModal = (order: RentalOrder) => {
@@ -408,20 +568,25 @@ const App: React.FC = () => {
         setScheduleDeliveryModalOpen(false);
     };
 
-    const handleSaveDeliveryDate = (orderId: string, deliveryDate: string) => {
-        setRentalOrders(prev => prev.map(o => {
-            if (o.id === orderId) {
-                const updatedOrder = {
-                    ...o,
-                    deliveryDate,
-                    status: 'Reservado' as RentalStatus,
-                    statusHistory: [...o.statusHistory, { status: 'Reservado' as RentalStatus, date: new Date().toISOString() }]
-                };
-                return updatedOrder;
-            }
-            return o;
-        }));
-        handleCloseScheduleDeliveryModal();
+    const handleSaveDeliveryDate = async (orderId: string, deliveryDate: string) => {
+        if (!supabase) return;
+        const order = rentalOrders.find(o => o.id === orderId);
+        if (!order) return;
+
+        const newStatus = 'Reservado';
+        const newHistory = [...order.statusHistory, { status: newStatus, date: new Date().toISOString() }];
+
+        const { data, error } = await supabase
+            .from('rental_orders')
+            .update({ deliveryDate, status: newStatus, statusHistory: newHistory })
+            .eq('id', orderId)
+            .select()
+            .single();
+
+        if (!error && data) {
+            setRentalOrders(prev => prev.map(o => o.id === orderId ? data : o));
+            handleCloseScheduleDeliveryModal();
+        }
     };
     
     // Maintenance Handlers
@@ -435,17 +600,34 @@ const App: React.FC = () => {
         setAddEditMaintenanceModalOpen(true);
     };
 
-    const handleSaveMaintenanceOrder = (orderData: Omit<MaintenanceOrder, 'id'> | MaintenanceOrder) => {
+    const handleSaveMaintenanceOrder = async (orderData: Omit<MaintenanceOrder, 'id'> | MaintenanceOrder) => {
+        if (!supabase || !tenantId) return;
+        
+        let savedData: MaintenanceOrder | null = null;
+
         if ('id' in orderData && orderData.id) { // Update
-            setMaintenanceOrders(prev => prev.map(o => o.id === orderData.id ? { ...o, ...orderData } as MaintenanceOrder : o));
+            const { data, error } = await supabase.from('maintenance_orders').update(orderData).eq('id', orderData.id).select().single();
+             if (!error && data) savedData = data;
         } else { // Create
-            const maxId = maintenanceOrders.reduce((max, o) => Math.max(max, parseInt(o.id.split('-')[1])), 0);
+            const maxId = maintenanceOrders.reduce((max, o) => Math.max(max, parseInt(o.id.split('-')[1] || '0')), 0);
             const newId = `OS-${(maxId + 1).toString().padStart(3, '0')}`;
-            const newOrder: MaintenanceOrder = { ...(orderData as Omit<MaintenanceOrder, 'id'>), id: newId };
-            setMaintenanceOrders(prev => [newOrder, ...prev]);
+            const newOrder = { 
+                ...orderData, 
+                id: newId,
+                tenant_id: tenantId
+            };
+            const { data, error } = await supabase.from('maintenance_orders').insert(newOrder).select().single();
+            if (!error && data) savedData = data;
         }
-        setAddEditMaintenanceModalOpen(false);
-        setMaintenanceOrderToEdit(null);
+
+        if (savedData) {
+            setMaintenanceOrders(prev => {
+                const exists = prev.find(o => o.id === savedData!.id);
+                return exists ? prev.map(o => o.id === savedData!.id ? savedData! : o) : [savedData!, ...prev];
+            });
+            setAddEditMaintenanceModalOpen(false);
+            setMaintenanceOrderToEdit(null);
+        }
     };
 
     const handleOpenDeleteMaintenanceModal = (order: MaintenanceOrder) => {
@@ -453,18 +635,23 @@ const App: React.FC = () => {
         setDeleteMaintenanceModalOpen(true);
     };
 
-    const handleDeleteMaintenanceOrder = () => {
-        if (maintenanceOrderToDelete) {
-            setMaintenanceOrders(prev => prev.filter(o => o.id !== maintenanceOrderToDelete.id));
-            setDeleteMaintenanceModalOpen(false);
-            setMaintenanceOrderToDelete(null);
+    const handleDeleteMaintenanceOrder = async () => {
+        if (maintenanceOrderToDelete && supabase) {
+            const { error } = await supabase.from('maintenance_orders').delete().eq('id', maintenanceOrderToDelete.id);
+            if (!error) {
+                setMaintenanceOrders(prev => prev.filter(o => o.id !== maintenanceOrderToDelete.id));
+                setDeleteMaintenanceModalOpen(false);
+                setMaintenanceOrderToDelete(null);
+            }
         }
     };
 
-    const handleUpdateMaintenanceStatus = (orderId: string, newStatus: MaintenanceStatus) => {
-        setMaintenanceOrders(prev => prev.map(order => 
-            order.id === orderId ? { ...order, status: newStatus } : order
-        ));
+    const handleUpdateMaintenanceStatus = async (orderId: string, newStatus: MaintenanceStatus) => {
+        if (!supabase) return;
+        const { data, error } = await supabase.from('maintenance_orders').update({ status: newStatus }).eq('id', orderId).select().single();
+        if (!error && data) {
+             setMaintenanceOrders(prev => prev.map(order => order.id === orderId ? data : order));
+        }
     };
 
     // Print Handler
@@ -477,10 +664,18 @@ const App: React.FC = () => {
         setActivePage('Dashboard');
     };
 
-    const handleLogout = () => {
-        setIsAuthenticated(false);
-    };
+    // Loading Screen
+    if (isLoadingAuth) {
+        return <div className="h-screen w-full flex items-center justify-center bg-neutral-bg"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
+    }
 
+    if (!isAuthenticated) {
+        return <Login onLoginSuccess={handleLoginSuccess} />;
+    }
+
+    if (loadingData && activePage === 'Dashboard' && rentalOrders.length === 0) {
+        return <div className="h-screen w-full flex items-center justify-center bg-neutral-bg"><div className="text-center"><Loader2 className="animate-spin h-10 w-10 text-primary mx-auto mb-2" /><p className="text-neutral-text-secondary">Carregando dados da sua empresa...</p></div></div>;
+    }
 
     const renderContent = () => {
         switch(activePage) {
@@ -547,14 +742,12 @@ const App: React.FC = () => {
                         />;
             case 'Configurações':
                 return <Configuracoes onOpenPriceTableModal={handleOpenPriceTableModal} setActivePage={setActivePage} />;
+            case 'Integrações':
+                return <Integracoes />;
             default:
                 return <PlaceholderPage title={activePage} />;
         }
     };
-    
-    if (!isAuthenticated) {
-        return <Login onLoginSuccess={handleLoginSuccess} />;
-    }
 
     return (
         <div className="flex h-screen font-sans text-neutral-text-primary bg-neutral-bg">

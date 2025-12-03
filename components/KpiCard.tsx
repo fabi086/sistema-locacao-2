@@ -1,9 +1,9 @@
 import React from 'react';
-import { motion, Variants } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import type { Kpi } from '../types';
 
-const cardVariants: Variants = {
+const cardVariants: any = {
     hidden: { y: 20, opacity: 0, scale: 0.98 },
     visible: { 
         y: 0, 
@@ -23,7 +23,7 @@ const KpiCard: React.FC<Kpi> = ({ title, value, change, Icon, isWarning = false 
     return (
         <motion.div 
             className="bg-neutral-card p-6 rounded-lg shadow-sm flex flex-col justify-between"
-            variants={cardVariants}
+            {...({ variants: cardVariants } as any)}
         >
             <div className="flex justify-between items-start">
                 <h3 className="font-semibold text-neutral-text-secondary">{title}</h3>
