@@ -97,9 +97,10 @@ const Usuarios: React.FC<UsuariosProps> = ({ users, onAdd, onEdit, onDelete }) =
                     </select>
                 </div>
             </div>
-
+            
+            {/* Desktop Table */}
             <motion.div 
-                className="bg-neutral-card rounded-lg shadow-sm overflow-x-auto"
+                className="hidden md:block bg-neutral-card rounded-lg shadow-sm overflow-x-auto"
                 {...({
                     initial: "hidden",
                     animate: "visible",
@@ -110,9 +111,9 @@ const Usuarios: React.FC<UsuariosProps> = ({ users, onAdd, onEdit, onDelete }) =
                     <thead className="bg-neutral-card-alt text-neutral-text-secondary font-semibold">
                         <tr>
                             <th className="p-4">Nome</th>
-                            <th className="p-4 hidden sm:table-cell">Email</th>
-                            <th className="p-4 hidden md:table-cell">Papel</th>
-                            <th className="p-4 hidden lg:table-cell">Último Acesso</th>
+                            <th className="p-4">Email</th>
+                            <th className="p-4">Papel</th>
+                            <th className="p-4">Último Acesso</th>
                             <th className="p-4">Status</th>
                             <th className="p-4 text-center">Ações</th>
                         </tr>
@@ -125,9 +126,9 @@ const Usuarios: React.FC<UsuariosProps> = ({ users, onAdd, onEdit, onDelete }) =
                                 {...({ variants: itemVariants } as any)}
                             >
                                 <td className="p-4 font-semibold text-neutral-text-primary">{user.name}</td>
-                                <td className="p-4 text-neutral-text-secondary hidden sm:table-cell">{user.email}</td>
-                                <td className="p-4 text-neutral-text-secondary hidden md:table-cell">{user.role}</td>
-                                <td className="p-4 text-neutral-text-secondary hidden lg:table-cell">{new Date(user.lastLogin + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                                <td className="p-4 text-neutral-text-secondary">{user.email}</td>
+                                <td className="p-4 text-neutral-text-secondary">{user.role}</td>
+                                <td className="p-4 text-neutral-text-secondary">{new Date(user.lastLogin + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
                                 <td className="p-4"><StatusBadge status={user.status} /></td>
                                 <td className="p-4">
                                     <div className="flex items-center justify-center gap-2">
@@ -143,12 +144,42 @@ const Usuarios: React.FC<UsuariosProps> = ({ users, onAdd, onEdit, onDelete }) =
                         ))}
                     </motion.tbody>
                 </table>
-                 {filteredUsers.length === 0 && (
-                    <div className="text-center p-8 text-neutral-text-secondary">
-                        <p>Nenhum usuário encontrado com os filtros selecionados.</p>
-                    </div>
-                )}
             </motion.div>
+
+            {/* Mobile Cards */}
+            <motion.div
+                className="block md:hidden space-y-4"
+                {...({
+                    initial: "hidden",
+                    animate: "visible",
+                    variants: containerVariants
+                } as any)}
+            >
+                {filteredUsers.map(user => (
+                    <motion.div key={user.id} className="bg-neutral-card rounded-lg shadow-sm p-4 border border-gray-200" {...({ variants: itemVariants } as any)}>
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="font-bold text-primary text-sm">{user.name}</p>
+                                <p className="text-xs text-neutral-text-secondary">{user.email}</p>
+                            </div>
+                             <StatusBadge status={user.status} />
+                        </div>
+                        <div className="my-3 text-sm text-neutral-text-secondary flex justify-between items-center border-t border-b py-2">
+                            <span><span className="font-semibold">Papel:</span> {user.role}</span>
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
+                             <button onClick={() => onEdit(user)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors"><Edit2 size={18} /></button>
+                            <button onClick={() => onDelete(user)} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors"><Trash2 size={18} /></button>
+                        </div>
+                    </motion.div>
+                ))}
+            </motion.div>
+
+            {filteredUsers.length === 0 && (
+                <div className="text-center p-8 text-neutral-text-secondary bg-neutral-card rounded-lg shadow-sm">
+                    <p>Nenhum usuário encontrado com os filtros selecionados.</p>
+                </div>
+            )}
         </div>
     );
 };

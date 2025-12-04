@@ -113,9 +113,10 @@ const Orcamentos: React.FC<OrcamentosProps> = ({ quotes, clients, onOpenAddModal
                     {quoteStatuses.map(status => <option key={status} value={status}>{status}</option>)}
                 </select>
             </div>
-
+            
+            {/* Table View for medium screens and up */}
             <motion.div 
-                className="bg-neutral-card rounded-lg shadow-sm overflow-x-auto"
+                className="hidden md:block bg-neutral-card rounded-lg shadow-sm overflow-x-auto"
                 {...({
                     initial: "hidden",
                     animate: "visible",
@@ -127,8 +128,8 @@ const Orcamentos: React.FC<OrcamentosProps> = ({ quotes, clients, onOpenAddModal
                         <tr>
                             <th className="p-4">ID</th>
                             <th className="p-4">Cliente</th>
-                            <th className="p-4 hidden md:table-cell">Data</th>
-                            <th className="p-4 hidden sm:table-cell">Valor</th>
+                            <th className="p-4">Data</th>
+                            <th className="p-4">Valor</th>
                             <th className="p-4">Status</th>
                             <th className="p-4 text-center">Ações</th>
                         </tr>
@@ -142,8 +143,8 @@ const Orcamentos: React.FC<OrcamentosProps> = ({ quotes, clients, onOpenAddModal
                             >
                                 <td className="p-4 font-semibold text-primary">{quote.id}</td>
                                 <td className="p-4 text-neutral-text-primary font-medium">{quote.client}</td>
-                                <td className="p-4 text-neutral-text-secondary hidden md:table-cell">{new Date(quote.createdDate + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
-                                <td className="p-4 text-neutral-text-secondary hidden sm:table-cell font-semibold">R$ {quote.value.toLocaleString('pt-BR')}</td>
+                                <td className="p-4 text-neutral-text-secondary">{new Date(quote.createdDate + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                                <td className="p-4 text-neutral-text-secondary font-semibold">R$ {quote.value.toLocaleString('pt-BR')}</td>
                                 <td className="p-4">
                                     <div className="relative inline-block">
                                         <select
@@ -180,12 +181,66 @@ const Orcamentos: React.FC<OrcamentosProps> = ({ quotes, clients, onOpenAddModal
                         ))}
                     </motion.tbody>
                 </table>
-                 {filteredQuotes.length === 0 && (
-                    <div className="text-center p-8 text-neutral-text-secondary">
-                        <p>Nenhum orçamento encontrado com os filtros selecionados.</p>
-                    </div>
-                )}
             </motion.div>
+
+            {/* Card View for small screens */}
+            <motion.div
+                className="block md:hidden space-y-4"
+                {...({
+                    initial: "hidden",
+                    animate: "visible",
+                    variants: containerVariants
+                } as any)}
+            >
+                {filteredQuotes.map(quote => (
+                    <motion.div key={quote.id} className="bg-neutral-card rounded-lg shadow-sm p-4 border border-gray-200" {...({ variants: itemVariants } as any)}>
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="font-bold text-primary text-sm">{quote.id}</p>
+                                <p className="text-neutral-text-primary font-medium">{quote.client}</p>
+                            </div>
+                            <div className="relative inline-block">
+                                <select
+                                    value={quote.status}
+                                    onChange={(e) => onUpdateStatus(quote.id, e.target.value as RentalStatus)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className={`pl-2.5 pr-8 py-1 text-xs font-semibold rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-primary border-none transition-colors ${statusColors[quote.status]}`}
+                                    aria-label={`Mudar status do orçamento ${quote.id}`}
+                                >
+                                    {quoteStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-current">
+                                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="my-3 text-sm text-neutral-text-secondary flex justify-between items-center border-t border-b py-2">
+                            <span><span className="font-semibold">Data:</span> {new Date(quote.createdDate + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                            <span><span className="font-semibold">Valor:</span> R$ {quote.value.toLocaleString('pt-BR')}</span>
+                        </div>
+                        <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => handleWhatsAppShare(quote)} className="p-2 text-neutral-text-secondary hover:text-green-500 hover:bg-green-500/10 rounded-full transition-colors" aria-label={`Compartilhar orçamento ${quote.id}`}>
+                                <Share2 size={18} />
+                            </button>
+                            <button onClick={() => onEdit(quote)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors" aria-label={`Editar orçamento ${quote.id}`}>
+                                <Edit2 size={18} />
+                            </button>
+                            <button onClick={() => onOpenPrintModal(quote)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors" aria-label={`Imprimir orçamento ${quote.id}`}>
+                                <Printer size={18} />
+                            </button>
+                            <button onClick={() => onDelete(quote)} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors" aria-label={`Excluir orçamento ${quote.id}`}>
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
+                    </motion.div>
+                ))}
+            </motion.div>
+
+            {filteredQuotes.length === 0 && (
+                <div className="text-center p-8 text-neutral-text-secondary bg-neutral-card rounded-lg shadow-sm">
+                    <p>Nenhum orçamento encontrado com os filtros selecionados.</p>
+                </div>
+            )}
         </div>
     );
 };

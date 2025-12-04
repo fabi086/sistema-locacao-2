@@ -110,8 +110,9 @@ const Equipamentos: React.FC<EquipamentosProps> = ({ equipment, onOpenQuoteModal
                     </div>
                 </div>
 
+                {/* Table for Desktop */}
                 <motion.div 
-                    className="bg-neutral-card rounded-lg shadow-sm overflow-hidden"
+                    className="hidden md:block bg-neutral-card rounded-lg shadow-sm overflow-hidden"
                     {...({
                         initial: "hidden",
                         animate: "visible",
@@ -123,9 +124,9 @@ const Equipamentos: React.FC<EquipamentosProps> = ({ equipment, onOpenQuoteModal
                             <tr>
                                 <th className="p-4 w-[35%]">Nome</th>
                                 <th className="p-4">Categoria</th>
-                                <th className="p-4 hidden md:table-cell">N° de Série</th>
+                                <th className="p-4">N° de Série</th>
                                 <th className="p-4">Status</th>
-                                <th className="p-4 hidden sm:table-cell">Localização</th>
+                                <th className="p-4">Localização</th>
                                 <th className="p-4 text-center w-[80px]">Ações</th>
                             </tr>
                         </thead>
@@ -138,9 +139,9 @@ const Equipamentos: React.FC<EquipamentosProps> = ({ equipment, onOpenQuoteModal
                                 >
                                     <td className="p-4 font-semibold text-neutral-text-primary cursor-pointer break-words" onClick={() => handleRowClick(eq)}>{eq.name}</td>
                                     <td className="p-4 text-neutral-text-secondary cursor-pointer break-words" onClick={() => handleRowClick(eq)}>{eq.category}</td>
-                                    <td className="p-4 text-neutral-text-secondary hidden md:table-cell cursor-pointer" onClick={() => handleRowClick(eq)}>{eq.serialNumber}</td>
+                                    <td className="p-4 text-neutral-text-secondary cursor-pointer" onClick={() => handleRowClick(eq)}>{eq.serialNumber}</td>
                                     <td className="p-4 cursor-pointer" onClick={() => handleRowClick(eq)}><StatusBadge status={eq.status} /></td>
-                                    <td className="p-4 text-neutral-text-secondary hidden sm:table-cell cursor-pointer" onClick={() => handleRowClick(eq)}>{eq.location}</td>
+                                    <td className="p-4 text-neutral-text-secondary cursor-pointer" onClick={() => handleRowClick(eq)}>{eq.location}</td>
                                     <td className="p-4">
                                         <div className="flex items-center justify-center gap-2">
                                             <button onClick={() => onEdit(eq)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors">
@@ -155,12 +156,52 @@ const Equipamentos: React.FC<EquipamentosProps> = ({ equipment, onOpenQuoteModal
                             ))}
                         </motion.tbody>
                     </table>
-                     {filteredEquipment.length === 0 && (
-                        <div className="text-center p-8 text-neutral-text-secondary">
-                            <p>Nenhum equipamento encontrado com os filtros selecionados.</p>
-                        </div>
-                    )}
                 </motion.div>
+
+                {/* Cards for Mobile */}
+                <motion.div
+                    className="block md:hidden space-y-4"
+                    {...({
+                        initial: "hidden",
+                        animate: "visible",
+                        variants: containerVariants
+                    } as any)}
+                >
+                    {filteredEquipment.map(eq => (
+                        <motion.div 
+                            key={eq.id} 
+                            className="bg-neutral-card rounded-lg shadow-sm p-4 border border-gray-200"
+                             {...({ variants: itemVariants } as any)}
+                             onClick={() => handleRowClick(eq)}
+                        >
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-bold text-primary text-sm">{eq.name}</p>
+                                    <p className="text-xs text-neutral-text-secondary">{eq.serialNumber}</p>
+                                </div>
+                                <StatusBadge status={eq.status} />
+                            </div>
+                            <div className="my-3 text-sm text-neutral-text-secondary flex justify-between items-center border-t border-b py-2">
+                                <span><span className="font-semibold">Categoria:</span> {eq.category}</span>
+                                <span><span className="font-semibold">Local:</span> {eq.location}</span>
+                            </div>
+                            <div className="flex items-center justify-end gap-2">
+                                <button onClick={(e) => {e.stopPropagation(); onEdit(eq)}} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors">
+                                    <Edit2 size={18} />
+                                </button>
+                                <button onClick={(e) => {e.stopPropagation(); onDelete(eq)}} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors">
+                                    <Trash2 size={18} />
+                                </button>
+                            </div>
+                        </motion.div>
+                    ))}
+                </motion.div>
+
+                {filteredEquipment.length === 0 && (
+                    <div className="text-center p-8 text-neutral-text-secondary bg-neutral-card rounded-lg shadow-sm">
+                        <p>Nenhum equipamento encontrado com os filtros selecionados.</p>
+                    </div>
+                )}
             </div>
         </>
     );

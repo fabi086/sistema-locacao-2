@@ -118,8 +118,14 @@ export interface Customer {
     document: string; // CNPJ ou CPF
     email: string;
     phone: string;
-    address?: string;
     status: CustomerStatus;
+    cep?: string;
+    street?: string;
+    number?: string;
+    complement?: string;
+    neighborhood?: string;
+    city?: string;
+    state?: string;
 }
 
 export type ContractStatus = 'Pendente' | 'Ativo' | 'Vencido';
@@ -132,6 +138,7 @@ export interface Contract {
     endDate: string;
     value: number;
     status: ContractStatus;
+    dueDate?: string;
 }
 
 export type CalendarEventType = 'Entrega' | 'Coleta' | 'Manutenção';

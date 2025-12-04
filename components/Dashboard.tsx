@@ -4,9 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import KpiCard from './KpiCard';
 import RevenueChart from './RevenueChart';
 import { Activity, Client, Kpi, RevenueData, Equipment, MaintenanceOrder, RentalOrder } from '../types';
+import CustomDateRangeModal from './CustomDateRangeModal';
 
 
-const periods = ['Este Mês', 'Últimos 7 dias', 'Últimos 30 dias', 'Este Ano'];
+const periods = ['Este Mês', 'Últimos 7 dias', 'Últimos 30 dias', 'Este Ano', 'Personalizado...'];
 
 const ActivityList: React.FC<{title: string; items: Activity[]}> = ({title, items}) => (
     <div className="bg-neutral-card p-6 rounded-lg shadow-sm h-full">
@@ -53,12 +54,81 @@ const Dashboard: React.FC<{
 }> = ({ onOpenQuoteModal, rentalOrders, equipment, maintenanceOrders }) => {
     const [isDateFilterOpen, setDateFilterOpen] = useState(false);
     const [selectedPeriod, setSelectedPeriod] = useState('Este Mês');
+    const [isCustomRangeModalOpen, setIsCustomRangeModalOpen] = useState(false);
+    const [dateRange, setDateRange] = useState<{ start: Date | null, end: Date | null }>({ start: null, end: null });
     const [revenueData, setRevenueData] = useState<RevenueData[]>([]);
     const dateFilterRef = useRef<HTMLDivElement>(null);
 
+    const handlePeriodSelect = (period: string) => {
+        setDateFilterOpen(false);
+        if (period === 'Personalizado...') {
+            setIsCustomRangeModalOpen(true);
+        } else {
+            setSelectedPeriod(period);
+            setDateRange({ start: null, end: null }); // Reset custom range
+        }
+    };
+
+    const handleApplyCustomRange = (start: Date, end: Date) => {
+        setDateRange({ start, end });
+        const formattedStart = start.toLocaleDateString('pt-BR', {timeZone: 'UTC'});
+        const formattedEnd = end.toLocaleDateString('pt-BR', {timeZone: 'UTC'});
+        setSelectedPeriod(`${formattedStart} - ${formattedEnd}`);
+        setIsCustomRangeModalOpen(false);
+    };
+
+    const filteredRentalOrders = useMemo(() => {
+        const now = new Date();
+        const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+        let startDate: Date;
+        let endDate: Date = new Date(todayUTC);
+
+        switch (selectedPeriod) {
+            case 'Este Mês':
+                startDate = new Date(Date.UTC(todayUTC.getUTCFullYear(), todayUTC.getUTCMonth(), 1));
+                endDate = new Date(Date.UTC(todayUTC.getUTCFullYear(), todayUTC.getUTCMonth() + 1, 0));
+                break;
+            case 'Últimos 7 dias':
+                startDate = new Date(todayUTC);
+                startDate.setUTCDate(todayUTC.getUTCDate() - 6);
+                break;
+            case 'Últimos 30 dias':
+                startDate = new Date(todayUTC);
+                startDate.setUTCDate(todayUTC.getUTCDate() - 29);
+                break;
+            case 'Este Ano':
+                startDate = new Date(Date.UTC(todayUTC.getUTCFullYear(), 0, 1));
+                endDate = new Date(Date.UTC(todayUTC.getUTCFullYear(), 11, 31));
+                break;
+            default: // Custom range
+                if (dateRange.start && dateRange.end) {
+                    const start = dateRange.start;
+                    const end = dateRange.end;
+                    startDate = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()));
+                    endDate = new Date(Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()));
+                } else {
+                    // Fallback para o mês atual
+                    startDate = new Date(Date.UTC(todayUTC.getUTCFullYear(), todayUTC.getUTCMonth(), 1));
+                    endDate = new Date(Date.UTC(todayUTC.getUTCFullYear(), todayUTC.getUTCMonth() + 1, 0));
+                }
+                break;
+        }
+
+        const startTime = startDate.getTime();
+        const endTime = new Date(endDate).setUTCHours(23, 59, 59, 999);
+
+        return rentalOrders.filter(order => {
+            const orderDate = new Date(order.createdDate);
+            const orderTime = new Date(Date.UTC(orderDate.getUTCFullYear(), orderDate.getUTCMonth(), orderDate.getUTCDate())).getTime();
+            return orderTime >= startTime && orderTime <= endTime;
+        });
+    }, [selectedPeriod, dateRange, rentalOrders]);
+
+
     // KPI Calculations
     const kpiData: Kpi[] = useMemo(() => {
-        const totalRevenue = rentalOrders.reduce((acc, order) => {
+        const totalRevenue = filteredRentalOrders.reduce((acc, order) => {
             if (order.status !== 'Proposta') {
                 return acc + order.value + (order.freightCost || 0) + (order.accessoriesCost || 0) - (order.discount || 0);
             }
@@ -79,7 +149,7 @@ const Dashboard: React.FC<{
             { title: 'Equipamentos Disponíveis', value: String(availableEquipment), Icon: HardHat },
             { title: 'Pendências de Manutenção', value: String(pendingMaintenance), Icon: Wrench, isWarning: true },
         ];
-    }, [rentalOrders, equipment, maintenanceOrders]);
+    }, [filteredRentalOrders, equipment, maintenanceOrders]);
     
     // Revenue Chart Data
     useEffect(() => {
@@ -90,7 +160,7 @@ const Dashboard: React.FC<{
             orders.forEach(order => {
                 if (order.status !== 'Proposta') {
                     const date = new Date(order.createdDate + 'T00:00:00');
-                    if(date.getFullYear() === 2024){ // Filter for current year as per sample data
+                    if(date.getFullYear() === new Date().getFullYear()){
                         const monthIndex = date.getMonth();
                         const monthName = months[monthIndex];
                         const orderTotal = order.value + (order.freightCost || 0) + (order.accessoriesCost || 0) - (order.discount || 0);
@@ -111,12 +181,12 @@ const Dashboard: React.FC<{
             }));
         };
 
-        setRevenueData(generateRevenueData(rentalOrders));
-    }, [rentalOrders]);
+        setRevenueData(generateRevenueData(filteredRentalOrders));
+    }, [filteredRentalOrders]);
 
     // Entregas e Retornos Data
     const deliveries: Activity[] = useMemo(() => {
-        const relevantOrders = rentalOrders
+        const relevantOrders = filteredRentalOrders
             .filter(o => ['Em Rota', 'Ativo', 'Concluído'].includes(o.status))
             .sort((a,b) => new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime())
             .slice(0,3);
@@ -140,13 +210,13 @@ const Dashboard: React.FC<{
                 color: color,
             };
         });
-    }, [rentalOrders]);
+    }, [filteredRentalOrders]);
 
 
     // Top Clients Data (based on total order value)
     const topClients: Client[] = useMemo(() => {
         const clientValue: Record<string, number> = {};
-        rentalOrders.forEach(order => {
+        filteredRentalOrders.forEach(order => {
              const total = order.value + (order.freightCost || 0) + (order.accessoriesCost || 0) - (order.discount || 0);
              if (clientValue[order.client]) {
                  clientValue[order.client] += total;
@@ -159,11 +229,11 @@ const Dashboard: React.FC<{
             .map(([name, debt]) => ({ name, debt }))
             .sort((a, b) => b.debt - a.debt)
             .slice(0, 5);
-    }, [rentalOrders]);
+    }, [filteredRentalOrders]);
 
     // Recent Activities Data
     const recentActivities: Activity[] = useMemo(() => {
-        return rentalOrders
+        return filteredRentalOrders
             .sort((a, b) => new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime())
             .slice(0, 2)
             .map(o => {
@@ -188,7 +258,7 @@ const Dashboard: React.FC<{
                     color: color,
                 };
             });
-    }, [rentalOrders]);
+    }, [filteredRentalOrders]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -217,81 +287,91 @@ const Dashboard: React.FC<{
     };
 
     return (
-        <div className="p-4 sm:p-6 md:p-8">
-            <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-                <div>
-                    <h2 className="text-2xl sm:text-3xl font-bold text-neutral-text-primary">Dashboard</h2>
-                    <p className="text-neutral-text-secondary mt-1">Visão geral da sua operação.</p>
-                </div>
-                <div className="flex items-center gap-4 mt-4 md:mt-0">
-                     <div className="relative" ref={dateFilterRef}>
-                        <button onClick={() => setDateFilterOpen(prev => !prev)} className="flex items-center gap-2 text-sm font-semibold bg-neutral-card px-4 py-2 rounded-lg shadow-sm hover:bg-neutral-card-alt border border-gray-200">
-                            <span>{selectedPeriod}</span>
-                            <ChevronDown size={16} className={`transition-transform duration-200 ${isDateFilterOpen ? 'rotate-180' : ''}`} />
+        <>
+            <AnimatePresence>
+                {isCustomRangeModalOpen && (
+                    <CustomDateRangeModal 
+                        onClose={() => setIsCustomRangeModalOpen(false)}
+                        onApply={handleApplyCustomRange}
+                    />
+                )}
+            </AnimatePresence>
+            <div className="p-4 sm:p-6 md:p-8">
+                <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+                    <div>
+                        <h2 className="text-2xl sm:text-3xl font-bold text-neutral-text-primary">Dashboard</h2>
+                        <p className="text-neutral-text-secondary mt-1">Visão geral da sua operação.</p>
+                    </div>
+                    <div className="flex items-center gap-4 mt-4 md:mt-0">
+                        <div className="relative z-20" ref={dateFilterRef}>
+                            <button onClick={() => setDateFilterOpen(prev => !prev)} className="flex items-center gap-2 text-sm font-semibold bg-neutral-card px-4 py-2 rounded-lg shadow-sm hover:bg-neutral-card-alt border border-gray-200">
+                                <span>{selectedPeriod}</span>
+                                <ChevronDown size={16} className={`transition-transform duration-200 ${isDateFilterOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            <AnimatePresence>
+                                {isDateFilterOpen && (
+                                    <motion.div 
+                                        className="absolute left-0 mt-2 w-48 bg-neutral-card rounded-lg shadow-lg py-1 z-10 border border-gray-200"
+                                        {...({
+                                            variants: dropdownVariants,
+                                            initial: "hidden",
+                                            animate: "visible",
+                                            exit: "exit"
+                                        } as any)}
+                                    >
+                                        {periods.map(period => (
+                                            <button 
+                                                key={period} 
+                                                onClick={() => handlePeriodSelect(period)} 
+                                                className="w-full text-left px-4 py-2 text-sm text-neutral-text-primary hover:bg-neutral-bg"
+                                            >
+                                                {period}
+                                            </button>
+                                        ))}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                        <button onClick={() => onOpenQuoteModal()} className="flex items-center gap-2 text-sm font-semibold bg-secondary text-white px-4 py-2 rounded-lg shadow-sm hover:bg-secondary-dark transition-colors">
+                            <Plus size={16} />
+                            <span>Novo Orçamento</span>
                         </button>
-                        <AnimatePresence>
-                            {isDateFilterOpen && (
-                                <motion.div 
-                                    className="absolute right-0 mt-2 w-48 bg-neutral-card rounded-lg shadow-lg py-1 z-10 border border-gray-200"
-                                    {...({
-                                        variants: dropdownVariants,
-                                        initial: "hidden",
-                                        animate: "visible",
-                                        exit: "exit"
-                                    } as any)}
-                                >
-                                    {periods.map(period => (
-                                        <button 
-                                            key={period} 
-                                            onClick={() => { setSelectedPeriod(period); setDateFilterOpen(false); }} 
-                                            className="w-full text-left px-4 py-2 text-sm text-neutral-text-primary hover:bg-neutral-bg"
-                                        >
-                                            {period}
-                                        </button>
-                                    ))}
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
                     </div>
-                    <button onClick={() => onOpenQuoteModal()} className="flex items-center gap-2 text-sm font-semibold bg-secondary text-white px-4 py-2 rounded-lg shadow-sm hover:bg-secondary-dark transition-colors">
-                        <Plus size={16} />
-                        <span>Novo Orçamento</span>
-                    </button>
-                </div>
-            </header>
+                </header>
 
-            <motion.div 
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
-                {...({
-                    variants: containerVariants,
-                    initial: "hidden",
-                    animate: "visible"
-                } as any)}
-            >
-                {kpiData.map((kpi, index) => (
-                    <KpiCard key={index} {...kpi} />
-                ))}
-            </motion.div>
+                <motion.div 
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+                    {...({
+                        variants: containerVariants,
+                        initial: "hidden",
+                        animate: "visible"
+                    } as any)}
+                >
+                    {kpiData.map((kpi, index) => (
+                        <KpiCard key={index} {...kpi} />
+                    ))}
+                </motion.div>
 
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2">
-                       <RevenueChart data={revenueData} />
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2">
+                          <RevenueChart data={revenueData} />
+                        </div>
+                        <div>
+                          <ActivityList title="Entregas e Retornos" items={deliveries} />
+                        </div>
                     </div>
-                    <div>
-                       <ActivityList title="Entregas e Retornos" items={deliveries} />
-                    </div>
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2">
-                        <ClientList title="Top 5 Clientes (Valor Total)" clients={topClients} />
-                    </div>
-                    <div>
-                        <ActivityList title="Atividades Recentes e Alertas" items={recentActivities} />
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2">
+                            <ClientList title="Top 5 Clientes (Valor Total)" clients={topClients} />
+                        </div>
+                        <div>
+                            <ActivityList title="Atividades Recentes e Alertas" items={recentActivities} />
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </>
     );
 };
 

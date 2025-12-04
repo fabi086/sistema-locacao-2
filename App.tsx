@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dashboard from './components/Dashboard';
@@ -12,7 +13,7 @@ import Agenda from './components/Agenda';
 import Manutencao from './components/Manutencao';
 import Usuarios from './components/Usuarios';
 import AddClientModal from './components/AddClientModal';
-import { Equipment, Customer, User, RentalOrder, RentalStatus, MaintenanceOrder, MaintenanceStatus, Contract } from './types';
+import { Equipment, Customer, User, RentalOrder, RentalStatus, MaintenanceOrder, MaintenanceStatus, Contract, EquipmentStatus } from './types';
 import { Truck, Wrench, FileText, Users, Building, Calendar, Settings, HardHat, LogOut, ChevronLeft, LayoutDashboard, Menu, ClipboardList, Loader2, RefreshCw } from 'lucide-react';
 import AddEquipmentModal from './components/AddEquipmentModal';
 import ConfirmationModal from './components/ConfirmationModal';
@@ -26,6 +27,7 @@ import Login from './components/Login';
 import Orcamentos from './components/Orcamentos';
 import Integracoes from './components/Integracoes';
 import { supabase } from './supabaseClient';
+import AddEditContractModal from './components/AddEditContractModal';
 
 const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard' },
@@ -168,12 +170,15 @@ const App: React.FC = () => {
     const [isScheduleDeliveryModalOpen, setScheduleDeliveryModalOpen] = useState(false);
     const [orderToSchedule, setOrderToSchedule] = useState<RentalOrder | null>(null);
     const [orderToPrint, setOrderToPrint] = useState<RentalOrder | null>(null);
+    const [orderSource, setOrderSource] = useState<'quote' | 'rental'>('quote');
 
     const [isAddEditMaintenanceModalOpen, setAddEditMaintenanceModalOpen] = useState(false);
     const [maintenanceOrderToEdit, setMaintenanceOrderToEdit] = useState<MaintenanceOrder | null>(null);
     const [isDeleteMaintenanceModalOpen, setDeleteMaintenanceModalOpen] = useState(false);
     const [maintenanceOrderToDelete, setMaintenanceOrderToDelete] = useState<MaintenanceOrder | null>(null);
 
+    const [isAddEditContractModalOpen, setAddEditContractModalOpen] = useState(false);
+    const [contractToEdit, setContractToEdit] = useState<Contract | null>(null);
     const [isDeleteContractModalOpen, setDeleteContractModalOpen] = useState(false);
     const [contractToDelete, setContractToDelete] = useState<Contract | null>(null);
 
@@ -295,6 +300,14 @@ const App: React.FC = () => {
     const activeRentals = useMemo(() => rentalOrders.filter(o => o.status !== 'Proposta' && o.status !== 'Recusado'), [rentalOrders]);
 
     const handleOpenOrderModal = (equipment: Equipment | null = null) => {
+        setOrderSource('quote');
+        setOrderToEdit(null);
+        setEquipmentForOrder(equipment);
+        setAddEditOrderModalOpen(true);
+    };
+
+    const handleOpenRentalOrderModal = (equipment: Equipment | null = null) => {
+        setOrderSource('rental');
         setOrderToEdit(null);
         setEquipmentForOrder(equipment);
         setAddEditOrderModalOpen(true);
@@ -520,11 +533,13 @@ const App: React.FC = () => {
         } else { // Create
             const maxId = rentalOrders.reduce((max, q) => Math.max(max, parseInt(q.id.split('-')[1] || '0')), 0);
             const newId = `ORC-${(maxId + 1).toString().padStart(3, '0')}`;
+            const initialStatus: RentalStatus = orderSource === 'rental' ? 'Aprovado' : 'Proposta';
+            
             const newOrder = {
                 ...orderData,
                 id: newId,
-                status: 'Proposta',
-                statusHistory: [{ status: 'Proposta', date: (orderData as any).createdDate }],
+                status: initialStatus,
+                statusHistory: [{ status: initialStatus, date: (orderData as any).createdDate }],
                 tenant_id: tenantId
             };
             const { data, error } = await supabase.from('rental_orders').insert(newOrder).select().single();
@@ -558,22 +573,117 @@ const App: React.FC = () => {
     };
 
     const handleUpdateOrderStatus = async (orderId: string, newStatus: RentalStatus) => {
-        if (!supabase) return;
-        
+        if (!supabase || !tenantId) return;
+    
         const order = rentalOrders.find(o => o.id === orderId);
-        if (!order) return;
-
+        if (!order || order.status === newStatus) return; // No change needed
+    
         const newHistory = [...order.statusHistory, { status: newStatus, date: new Date().toISOString() }];
-        
-        const { data, error } = await supabase
+    
+        // 1. Update order status in DB
+        const { data: updatedOrder, error: orderError } = await supabase
             .from('rental_orders')
             .update({ status: newStatus, statusHistory: newHistory })
             .eq('id', orderId)
             .select()
             .single();
-
-        if (!error && data) {
-            setRentalOrders(prev => prev.map(o => o.id === orderId ? data : o));
+    
+        if (orderError || !updatedOrder) {
+            console.error("Error updating order status:", orderError);
+            alert("Falha ao atualizar o status do pedido.");
+            return;
+        }
+    
+        // 2. Create an updated list of orders for local logic
+        const updatedOrdersList = rentalOrders.map(o => (o.id === orderId ? updatedOrder : o));
+    
+        // 3. Logic to update equipment status
+        const statusesMarkingInUse: RentalStatus[] = ['Aprovado', 'Reservado', 'Em Rota', 'Ativo'];
+        const statusesThatRelease: RentalStatus[] = ['Concluído', 'Recusado', 'Proposta'];
+    
+        const equipmentIdsInOrder = order.equipmentItems.map(item => item.equipmentId);
+        const equipmentStatusUpdates: { id: string; status: EquipmentStatus }[] = [];
+    
+        // If the new status puts equipment in use
+        if (statusesMarkingInUse.includes(newStatus)) {
+            equipmentIdsInOrder.forEach(id => {
+                equipmentStatusUpdates.push({ id, status: 'Em Uso' });
+            });
+        } 
+        // If the old status was "in use" and the new one is not, check if we can release it
+        else if (statusesMarkingInUse.includes(order.status) && statusesThatRelease.includes(newStatus)) {
+            for (const eqId of equipmentIdsInOrder) {
+                // Check if this equipment is in any OTHER active order using the UPDATED list
+                const isInOutherActiveOrder = updatedOrdersList.some(otherOrder => 
+                    otherOrder.id !== orderId &&
+                    statusesMarkingInUse.includes(otherOrder.status) &&
+                    otherOrder.equipmentItems.some(item => item.equipmentId === eqId)
+                );
+    
+                if (!isInOutherActiveOrder) {
+                    equipmentStatusUpdates.push({ id: eqId, status: 'Disponível' });
+                }
+            }
+        }
+    
+        // 4. Update equipment in DB if needed
+        if (equipmentStatusUpdates.length > 0) {
+            const updates = equipmentStatusUpdates.map(eq =>
+                supabase.from('equipments').update({ status: eq.status }).eq('id', eq.id)
+            );
+    
+            const results = await Promise.all(updates);
+            const hasErrors = results.some(res => res.error);
+            if (hasErrors) {
+                console.error("Error updating equipment statuses:", results.map(r => r.error).filter(Boolean));
+                alert("O status do pedido foi atualizado, mas houve um erro ao sincronizar o status dos equipamentos.");
+            }
+        }
+        
+        // 5. Create contract if needed
+        let newContractData: Contract | null = null;
+        if (newStatus === 'Ativo') {
+            const contractId = `CON-${orderId}`;
+            const contractExists = contracts.some(c => c.id === contractId);
+    
+            if (!contractExists) {
+                const totalValue = updatedOrder.value + (updatedOrder.freightCost || 0) + (updatedOrder.accessoriesCost || 0) - (updatedOrder.discount || 0);
+                const newContract: Omit<Contract, 'tenant_id'> & { tenant_id: string } = {
+                    id: contractId,
+                    client: updatedOrder.client,
+                    startDate: updatedOrder.startDate,
+                    endDate: updatedOrder.endDate,
+                    value: totalValue,
+                    status: 'Ativo',
+                    tenant_id: tenantId,
+                };
+                const { data: contractData, error: contractError } = await supabase
+                    .from('contracts')
+                    .insert(newContract)
+                    .select()
+                    .single();
+                if (contractError) {
+                    console.error("Erro ao criar contrato:", contractError);
+                } else {
+                    newContractData = contractData;
+                }
+            }
+        }
+    
+        // 6. Update all local states
+        setRentalOrders(updatedOrdersList);
+    
+        if (equipmentStatusUpdates.length > 0) {
+             setAllEquipment(prevEquipment => 
+                prevEquipment.map(eq => {
+                    const update = equipmentStatusUpdates.find(u => u.id === eq.id);
+                    return update ? { ...eq, status: update.status } : eq;
+                })
+            );
+        }
+        
+        if (newContractData) {
+            setContracts(prev => [...prev, newContractData!]);
         }
     };
 
@@ -674,6 +784,30 @@ const App: React.FC = () => {
     };
 
     // Contract Handlers
+    const handleOpenEditContractModal = (contract: Contract) => {
+        setContractToEdit(contract);
+        setAddEditContractModalOpen(true);
+    };
+
+    const handleSaveContract = async (contractData: Contract) => {
+        if (!supabase) return;
+        
+        const { data, error } = await supabase
+            .from('contracts')
+            .update({ dueDate: contractData.dueDate })
+            .eq('id', contractData.id)
+            .select()
+            .single();
+
+        if (!error && data) {
+            setContracts(prev => prev.map(c => c.id === data.id ? data : c));
+            setAddEditContractModalOpen(false);
+            setContractToEdit(null);
+        } else {
+            console.error("Erro ao salvar contrato:", error);
+        }
+    };
+
     const handleOpenDeleteContractModal = (contract: Contract) => {
         setContractToDelete(contract);
         setDeleteContractModalOpen(true);
@@ -770,7 +904,7 @@ const App: React.FC = () => {
             case 'Locação':
                 return <Locacao 
                             orders={activeRentals} 
-                            onOpenAddModal={handleOpenOrderModal}
+                            onOpenAddModal={handleOpenRentalOrderModal}
                             onEdit={handleOpenEditOrderModal}
                             onDelete={handleOpenDeleteOrderModal}
                             onUpdateStatus={handleUpdateOrderStatus}
@@ -781,6 +915,7 @@ const App: React.FC = () => {
                 return <Contratos 
                             contracts={contracts}
                             onDelete={handleOpenDeleteContractModal}
+                            onEdit={handleOpenEditContractModal}
                         />;
             case 'Clientes':
                 return <Clientes 
@@ -953,6 +1088,15 @@ const App: React.FC = () => {
                             onConfirm={handleDeleteContract}
                             title="Confirmar Exclusão de Contrato"
                             message={`Tem certeza de que deseja excluir o contrato "${contractToDelete.id}"? Esta ação não pode ser desfeita.`}
+                        />
+                    )}
+                </AnimatePresence>
+                <AnimatePresence>
+                    {isAddEditContractModalOpen && contractToEdit && (
+                        <AddEditContractModal
+                            onClose={() => setAddEditContractModalOpen(false)}
+                            onSave={handleSaveContract}
+                            contractToEdit={contractToEdit}
                         />
                     )}
                 </AnimatePresence>

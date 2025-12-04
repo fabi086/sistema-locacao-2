@@ -147,7 +147,7 @@ const QuotePrintModal: React.FC<{ quote: RentalOrder; onClose: () => void }> = (
                                 </table>
                             </div>
                              {/* Cards para Mobile (não será impresso) */}
-                            <div className="sm:hidden print:hidden space-y-4">
+                            <div className="sm:hidden no-print space-y-4">
                                 <h3 className="text-sm font-semibold uppercase text-gray-600">Itens do Orçamento</h3>
                                 {quote.equipmentItems.length > 0 ? (
                                     quote.equipmentItems.map((item, index) => {

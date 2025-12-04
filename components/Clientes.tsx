@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Search, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Mail, Phone, MapPin } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Customer, CustomerStatus } from '../types';
 
@@ -32,6 +32,19 @@ const Clientes: React.FC<ClientesProps> = ({ clients, onOpenAddClientModal, onEd
             return searchMatch;
         });
     }, [searchTerm, clients]);
+    
+    const formatAddress = (client: Customer) => {
+        if (!client.street) return 'Endereço não cadastrado';
+        const parts = [
+            client.street,
+            client.number,
+            client.complement,
+            client.neighborhood,
+            `${client.city} - ${client.state}`,
+            client.cep
+        ];
+        return parts.filter(Boolean).join(', ');
+    };
 
     const containerVariants: any = {
         hidden: { opacity: 0 },
@@ -69,8 +82,9 @@ const Clientes: React.FC<ClientesProps> = ({ clients, onOpenAddClientModal, onEd
                 </div>
             </div>
 
+            {/* Desktop Table */}
             <motion.div 
-                className="bg-neutral-card rounded-lg shadow-sm overflow-x-auto"
+                className="hidden md:block bg-neutral-card rounded-lg shadow-sm overflow-x-auto"
                 {...({
                     initial: "hidden",
                     animate: "visible",
@@ -81,8 +95,8 @@ const Clientes: React.FC<ClientesProps> = ({ clients, onOpenAddClientModal, onEd
                     <thead className="bg-neutral-card-alt text-neutral-text-secondary font-semibold">
                         <tr>
                             <th className="p-4">Nome</th>
-                            <th className="p-4 hidden sm:table-cell">Contato</th>
-                            <th className="p-4 hidden md:table-cell">Endereço</th>
+                            <th className="p-4">Contato</th>
+                            <th className="p-4">Endereço</th>
                             <th className="p-4">Status</th>
                             <th className="p-4 text-center">Ações</th>
                         </tr>
@@ -95,11 +109,11 @@ const Clientes: React.FC<ClientesProps> = ({ clients, onOpenAddClientModal, onEd
                                 {...({ variants: itemVariants } as any)}
                             >
                                 <td className="p-4 font-semibold text-neutral-text-primary">{client.name}</td>
-                                <td className="p-4 text-neutral-text-secondary hidden sm:table-cell">
+                                <td className="p-4 text-neutral-text-secondary">
                                     <div>{client.email}</div>
                                     <div>{client.phone}</div>
                                 </td>
-                                <td className="p-4 text-neutral-text-secondary hidden md:table-cell">{client.address}</td>
+                                <td className="p-4 text-neutral-text-secondary">{formatAddress(client)}</td>
                                 <td className="p-4"><StatusBadge status={client.status} /></td>
                                 <td className="p-4">
                                     <div className="flex items-center justify-center gap-2">
@@ -115,12 +129,44 @@ const Clientes: React.FC<ClientesProps> = ({ clients, onOpenAddClientModal, onEd
                         ))}
                     </motion.tbody>
                 </table>
-                 {filteredClients.length === 0 && (
-                    <div className="text-center p-8 text-neutral-text-secondary">
-                        <p>Nenhum cliente encontrado.</p>
-                    </div>
-                )}
             </motion.div>
+            
+            {/* Mobile Cards */}
+            <motion.div
+                className="block md:hidden space-y-4"
+                {...({
+                    initial: "hidden",
+                    animate: "visible",
+                    variants: containerVariants
+                } as any)}
+            >
+                {filteredClients.map(client => (
+                    <motion.div key={client.id} className="bg-neutral-card rounded-lg shadow-sm p-4 border border-gray-200" {...({ variants: itemVariants } as any)}>
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="font-bold text-primary text-sm">{client.name}</p>
+                                <p className="text-xs text-neutral-text-secondary">{client.document}</p>
+                            </div>
+                             <StatusBadge status={client.status} />
+                        </div>
+                        <div className="my-3 text-sm text-neutral-text-secondary space-y-1 border-t pt-2">
+                             <div className="flex items-center gap-2"><Mail size={14} /><span>{client.email || 'N/A'}</span></div>
+                             <div className="flex items-center gap-2"><Phone size={14} /><span>{client.phone || 'N/A'}</span></div>
+                             <div className="flex items-start gap-2"><MapPin size={14} className="mt-1 flex-shrink-0" /><span>{formatAddress(client)}</span></div>
+                        </div>
+                        <div className="flex items-center justify-end gap-2 border-t pt-2">
+                            <button onClick={() => onEdit(client)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors"><Edit2 size={18} /></button>
+                            <button onClick={() => onDelete(client)} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors"><Trash2 size={18} /></button>
+                        </div>
+                    </motion.div>
+                ))}
+            </motion.div>
+
+            {filteredClients.length === 0 && (
+                <div className="text-center p-8 text-neutral-text-secondary bg-neutral-card rounded-lg shadow-sm">
+                    <p>Nenhum cliente encontrado.</p>
+                </div>
+            )}
         </div>
     );
 };

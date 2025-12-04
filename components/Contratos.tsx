@@ -1,6 +1,7 @@
 
+
 import React, { useState, useMemo } from 'react';
-import { Search, Trash2 } from 'lucide-react';
+import { Search, Trash2, Edit2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Contract, ContractStatus } from '../types';
 
@@ -19,9 +20,10 @@ const StatusBadge: React.FC<{ status: ContractStatus }> = ({ status }) => (
 interface ContratosProps {
     contracts: Contract[];
     onDelete: (contract: Contract) => void;
+    onEdit: (contract: Contract) => void;
 }
 
-const Contratos: React.FC<ContratosProps> = ({ contracts = [], onDelete }) => {
+const Contratos: React.FC<ContratosProps> = ({ contracts = [], onDelete, onEdit }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<ContractStatus | 'Todos'>('Todos');
 
@@ -78,9 +80,10 @@ const Contratos: React.FC<ContratosProps> = ({ contracts = [], onDelete }) => {
                     <option value="Vencido">Vencido</option>
                 </select>
             </div>
-
+            
+            {/* Desktop Table */}
             <motion.div 
-                className="bg-neutral-card rounded-lg shadow-sm overflow-x-auto"
+                className="hidden md:block bg-neutral-card rounded-lg shadow-sm overflow-x-auto"
                 {...({
                     initial: "hidden",
                     animate: "visible",
@@ -92,8 +95,9 @@ const Contratos: React.FC<ContratosProps> = ({ contracts = [], onDelete }) => {
                         <tr>
                             <th className="p-4">ID Contrato</th>
                             <th className="p-4">Cliente</th>
-                            <th className="p-4 hidden md:table-cell">Vigência</th>
-                            <th className="p-4 hidden sm:table-cell">Valor Total</th>
+                            <th className="p-4">Vigência</th>
+                            <th className="p-4">Vencimento</th>
+                            <th className="p-4">Valor Total</th>
                             <th className="p-4">Status</th>
                             <th className="p-4 text-center">Ações</th>
                         </tr>
@@ -107,13 +111,19 @@ const Contratos: React.FC<ContratosProps> = ({ contracts = [], onDelete }) => {
                             >
                                 <td className="p-4 font-semibold text-primary">{contract.id}</td>
                                 <td className="p-4 text-neutral-text-primary font-medium">{contract.client}</td>
-                                <td className="p-4 text-neutral-text-secondary hidden md:table-cell">
+                                <td className="p-4 text-neutral-text-secondary">
                                     {new Date(contract.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(contract.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}
                                 </td>
-                                <td className="p-4 text-neutral-text-secondary hidden sm:table-cell font-semibold">R$ {contract.value.toLocaleString('pt-BR')}</td>
+                                <td className="p-4 text-neutral-text-secondary">
+                                    {contract.dueDate ? new Date(contract.dueDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}
+                                </td>
+                                <td className="p-4 text-neutral-text-secondary font-semibold">R$ {contract.value.toLocaleString('pt-BR')}</td>
                                 <td className="p-4"><StatusBadge status={contract.status} /></td>
                                 <td className="p-4 text-center">
                                     <div className="flex items-center justify-center gap-2">
+                                        <button onClick={() => onEdit(contract)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors" aria-label={`Editar contrato ${contract.id}`}>
+                                            <Edit2 size={16} />
+                                        </button>
                                         <button onClick={() => onDelete(contract)} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors" aria-label={`Excluir contrato ${contract.id}`}>
                                             <Trash2 size={16} />
                                         </button>
@@ -123,12 +133,44 @@ const Contratos: React.FC<ContratosProps> = ({ contracts = [], onDelete }) => {
                         ))}
                     </motion.tbody>
                 </table>
-                 {filteredContracts.length === 0 && (
-                    <div className="text-center p-8 text-neutral-text-secondary">
-                        <p>Nenhum contrato encontrado com os filtros selecionados.</p>
-                    </div>
-                )}
             </motion.div>
+
+            {/* Mobile Cards */}
+             <motion.div
+                className="block md:hidden space-y-4"
+                {...({
+                    initial: "hidden",
+                    animate: "visible",
+                    variants: containerVariants
+                } as any)}
+            >
+                {filteredContracts.map(contract => (
+                    <motion.div key={contract.id} className="bg-neutral-card rounded-lg shadow-sm p-4 border border-gray-200" {...({ variants: itemVariants } as any)}>
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="font-bold text-primary text-sm">{contract.id}</p>
+                                <p className="text-neutral-text-primary font-medium">{contract.client}</p>
+                            </div>
+                            <StatusBadge status={contract.status} />
+                        </div>
+                        <div className="my-3 text-sm text-neutral-text-secondary space-y-1 border-t border-b py-2">
+                            <p><span className="font-semibold">Vigência:</span> {new Date(contract.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(contract.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                            <p><span className="font-semibold">Vencimento:</span> {contract.dueDate ? new Date(contract.dueDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}</p>
+                            <p><span className="font-semibold">Valor:</span> R$ {contract.value.toLocaleString('pt-BR')}</p>
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
+                            <button onClick={() => onEdit(contract)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors"><Edit2 size={18} /></button>
+                            <button onClick={() => onDelete(contract)} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors"><Trash2 size={18} /></button>
+                        </div>
+                    </motion.div>
+                ))}
+            </motion.div>
+
+            {filteredContracts.length === 0 && (
+                <div className="text-center p-8 text-neutral-text-secondary bg-neutral-card rounded-lg shadow-sm">
+                    <p>Nenhum contrato encontrado com os filtros selecionados.</p>
+                </div>
+            )}
         </div>
     );
 };

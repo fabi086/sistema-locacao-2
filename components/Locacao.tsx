@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Printer, Edit2, Trash2, LayoutGrid, List } from 'lucide-react';
@@ -150,6 +151,8 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
             visible: { y: 0, opacity: 1, transition: { duration: 0.3, ease: 'easeOut' } }
         };
 
+        const totalValue = (order: RentalOrder) => order.value + (order.freightCost || 0) + (order.accessoriesCost || 0) - (order.discount || 0);
+
         return (
              <div className="p-4 sm:p-6 md:p-8">
                 <div className="bg-neutral-card p-4 rounded-lg shadow-sm mb-6 flex flex-col md:flex-row gap-4">
@@ -179,8 +182,10 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                         {allStatuses.map(status => <option key={status} value={status}>{status}</option>)}
                     </select>
                 </div>
+                
+                {/* Desktop Table */}
                  <motion.div 
-                    className="bg-neutral-card rounded-lg shadow-sm overflow-x-auto"
+                    className="hidden md:block bg-neutral-card rounded-lg shadow-sm overflow-x-auto"
                     {...({
                         initial: "hidden",
                         animate: "visible",
@@ -192,8 +197,8 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                             <tr>
                                 <th className="p-4">ID</th>
                                 <th className="p-4">Cliente</th>
-                                <th className="p-4 hidden md:table-cell">Data</th>
-                                <th className="p-4 hidden sm:table-cell">Valor</th>
+                                <th className="p-4">Data</th>
+                                <th className="p-4">Valor</th>
                                 <th className="p-4">Status</th>
                                 <th className="p-4 text-center">Ações</th>
                             </tr>
@@ -203,8 +208,8 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                                 <motion.tr key={order.id} className="border-b border-neutral-card-alt hover:bg-neutral-bg" {...({ variants: itemVariants } as any)}>
                                     <td className="p-4 font-semibold text-primary cursor-pointer" onClick={() => setSelectedOrder(order)}>{order.id}</td>
                                     <td className="p-4 text-neutral-text-primary font-medium">{order.client}</td>
-                                    <td className="p-4 text-neutral-text-secondary hidden md:table-cell">{new Date(order.createdDate + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
-                                    <td className="p-4 text-neutral-text-secondary hidden sm:table-cell font-semibold">R$ {order.value.toLocaleString('pt-BR')}</td>
+                                    <td className="p-4 text-neutral-text-secondary">{new Date(order.createdDate + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                                    <td className="p-4 text-neutral-text-secondary font-semibold">R$ {totalValue(order).toLocaleString('pt-BR')}</td>
                                     <td className="p-4">
                                          <div className="relative inline-block">
                                             <select
@@ -238,12 +243,56 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                             ))}
                         </motion.tbody>
                     </table>
-                     {filteredOrdersForTable.length === 0 && (
-                        <div className="text-center p-8 text-neutral-text-secondary">
-                            <p>Nenhum pedido encontrado com os filtros selecionados.</p>
-                        </div>
-                    )}
                 </motion.div>
+
+                {/* Mobile Cards */}
+                 <motion.div
+                    className="block md:hidden space-y-4"
+                    {...({
+                        initial: "hidden",
+                        animate: "visible",
+                        variants: containerVariants
+                    } as any)}
+                >
+                    {filteredOrdersForTable.map(order => (
+                        <motion.div key={order.id} className="bg-neutral-card rounded-lg shadow-sm p-4 border border-gray-200" {...({ variants: itemVariants } as any)}>
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-bold text-primary text-sm cursor-pointer" onClick={() => setSelectedOrder(order)}>{order.id}</p>
+                                    <p className="text-neutral-text-primary font-medium">{order.client}</p>
+                                </div>
+                                <div className="relative inline-block">
+                                    <select
+                                        value={order.status}
+                                        onChange={(e) => onUpdateStatus(order.id, e.target.value as RentalStatus)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className={`pl-2.5 pr-8 py-1 text-xs font-semibold rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-primary border-none transition-colors ${tableStatusColors[order.status]}`}
+                                    >
+                                        {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-current">
+                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="my-3 text-sm text-neutral-text-secondary flex justify-between items-center border-t border-b py-2">
+                                <span><span className="font-semibold">Data:</span> {new Date(order.createdDate + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                                <span><span className="font-semibold">Valor:</span> R$ {totalValue(order).toLocaleString('pt-BR')}</span>
+                            </div>
+                            <div className="flex items-center justify-end gap-1">
+                                <button onClick={() => onEdit(order)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors"><Edit2 size={18} /></button>
+                                <button onClick={() => onOpenPrintModal(order)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors"><Printer size={18} /></button>
+                                <button onClick={() => onDelete(order)} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors"><Trash2 size={18} /></button>
+                            </div>
+                        </motion.div>
+                    ))}
+                </motion.div>
+
+                 {(filteredOrdersForTable.length === 0) && (
+                    <div className="text-center p-8 text-neutral-text-secondary bg-neutral-card rounded-lg shadow-sm">
+                        <p>Nenhum pedido encontrado com os filtros selecionados.</p>
+                    </div>
+                )}
             </div>
         )
     }
