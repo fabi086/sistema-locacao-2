@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Printer, Edit2, Trash2, LayoutGrid, List } from 'lucide-react';
@@ -9,6 +10,9 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 
 
 const columns: RentalStatus[] = ['Aprovado', 'Reservado', 'Em Rota', 'Ativo', 'Concluído', 'Pendente de Pagamento'];
+
+// Lista completa de status para o filtro da tabela
+const allStatuses: RentalStatus[] = ['Proposta', 'Aprovado', 'Recusado', 'Reservado', 'Em Rota', 'Ativo', 'Concluído', 'Pendente de Pagamento'];
 
 const pipelineStatusColors: Record<RentalStatus, string> = {
     'Proposta': 'border-gray-400',
@@ -158,7 +162,7 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                         onChange={(e) => setStatusFilter(e.target.value as RentalStatus | 'Todos')}
                      >
                         <option value="Todos">Todos Status</option>
-                        {columns.map(status => <option key={status} value={status}>{status}</option>)}
+                        {allStatuses.map(status => <option key={status} value={status}>{status}</option>)}
                     </select>
                 </div>
                  <motion.div 
@@ -196,7 +200,7 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                                                 className={`pl-2.5 pr-8 py-1 text-xs font-semibold rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary border-none transition-colors ${tableStatusColors[order.status]}`}
                                                 aria-label={`Mudar status do pedido ${order.id}`}
                                             >
-                                                {columns.map(s => <option key={s} value={s}>{s}</option>)}
+                                                {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                                             </select>
                                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-current">
                                                 <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>

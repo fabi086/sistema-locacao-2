@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dashboard from './components/Dashboard';
 import PlaceholderPage from './components/PlaceholderPage';
@@ -12,8 +12,8 @@ import Agenda from './components/Agenda';
 import Manutencao from './components/Manutencao';
 import Usuarios from './components/Usuarios';
 import AddClientModal from './components/AddClientModal';
-import { Equipment, Customer, User, RentalOrder, RentalStatus, MaintenanceOrder, MaintenanceStatus } from './types';
-import { Truck, Wrench, FileText, Users, Building, Calendar, Settings, HardHat, LogOut, ChevronLeft, LayoutDashboard, Menu, ClipboardList, Loader2 } from 'lucide-react';
+import { Equipment, Customer, User, RentalOrder, RentalStatus, MaintenanceOrder, MaintenanceStatus, Contract } from './types';
+import { Truck, Wrench, FileText, Users, Building, Calendar, Settings, HardHat, LogOut, ChevronLeft, LayoutDashboard, Menu, ClipboardList, Loader2, RefreshCw } from 'lucide-react';
 import AddEquipmentModal from './components/AddEquipmentModal';
 import ConfirmationModal from './components/ConfirmationModal';
 import Configuracoes from './components/Configuracoes';
@@ -134,6 +134,7 @@ const App: React.FC = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [loadingData, setLoadingData] = useState(false);
     const [tenantId, setTenantId] = useState<string | null>(null);
+    const [profileError, setProfileError] = useState(false);
     
     // State Management
     const [clients, setClients] = useState<Customer[]>([]);
@@ -141,6 +142,7 @@ const App: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [rentalOrders, setRentalOrders] = useState<RentalOrder[]>([]);
     const [maintenanceOrders, setMaintenanceOrders] = useState<MaintenanceOrder[]>([]);
+    const [contracts, setContracts] = useState<Contract[]>([]);
 
     // Modals & UI State
     const [isAddEditClientModalOpen, setAddEditClientModalOpen] = useState(false);
@@ -172,6 +174,9 @@ const App: React.FC = () => {
     const [isDeleteMaintenanceModalOpen, setDeleteMaintenanceModalOpen] = useState(false);
     const [maintenanceOrderToDelete, setMaintenanceOrderToDelete] = useState<MaintenanceOrder | null>(null);
 
+    const [isDeleteContractModalOpen, setDeleteContractModalOpen] = useState(false);
+    const [contractToDelete, setContractToDelete] = useState<Contract | null>(null);
+
     const [isPriceTableModalOpen, setPriceTableModalOpen] = useState(false);
 
     // Initial Data Fetch
@@ -179,14 +184,13 @@ const App: React.FC = () => {
         if (!supabase) return;
         setLoadingData(true);
         try {
-            // RLS will automatically filter these by tenant_id on the server side
-            // We select * to get all columns
-            const [eqRes, cliRes, userRes, orderRes, maintRes] = await Promise.all([
+            const [eqRes, cliRes, userRes, orderRes, maintRes, contractsRes] = await Promise.all([
                 supabase.from('equipments').select('*'),
                 supabase.from('clients').select('*'),
                 supabase.from('users').select('*'),
                 supabase.from('rental_orders').select('*'),
                 supabase.from('maintenance_orders').select('*'),
+                supabase.from('contracts').select('*'),
             ]);
 
             if (eqRes.data) setAllEquipment(eqRes.data);
@@ -194,6 +198,7 @@ const App: React.FC = () => {
             if (userRes.data) setUsers(userRes.data);
             if (orderRes.data) setRentalOrders(orderRes.data);
             if (maintRes.data) setMaintenanceOrders(maintRes.data);
+            if (contractsRes.data) setContracts(contractsRes.data);
 
         } catch (error) {
             console.error("Erro ao carregar dados:", error);
@@ -206,44 +211,58 @@ const App: React.FC = () => {
         if (supabase) await supabase.auth.signOut();
         setIsAuthenticated(false);
         setTenantId(null);
+        setProfileError(false);
         // Clear local state
         setClients([]);
         setAllEquipment([]);
         setUsers([]);
         setRentalOrders([]);
         setMaintenanceOrders([]);
+        setContracts([]);
+        // Forçar reload para limpar estados globais
+        window.location.reload();
     };
 
     // Load User and Tenant Info
-    useEffect(() => {
-        const loadUserTenant = async (retries = 3) => {
-            if(!isAuthenticated || !supabase) return;
-            
+    const loadUserTenant = useCallback(async (retries = 5) => {
+        if(!isAuthenticated || !supabase) return;
+        
+        try {
             const { data: { user } } = await supabase.auth.getUser();
             if(user) {
                 // Fetch profile to get tenant_id
-                const { data: profile, error } = await supabase.from('users').select('tenant_id').eq('auth_id', user.id).single();
+                const { data: profile, error } = await supabase.from('users').select('tenant_id').eq('auth_id', user.id).maybeSingle();
                 
                 if(profile) {
                     setTenantId(profile.tenant_id);
-                    fetchAllData(); // Fetch data only after we know the user is linked to a tenant
+                    setProfileError(false);
+                    fetchAllData(); 
                 } else {
-                    console.log(`Perfil de usuário não encontrado. Tentativas restantes: ${retries}`);
+                    console.log(`Perfil não encontrado. Tentativas restantes: ${retries}`);
                     if (retries > 0) {
-                        setTimeout(() => loadUserTenant(retries - 1), 1000);
+                        // Backoff exponencial: 1s, 2s, 4s, 8s...
+                        const delay = Math.pow(2, 6 - retries) * 1000;
+                        setTimeout(() => loadUserTenant(retries - 1), delay);
                     } else {
-                         console.error("Erro crítico: Perfil não encontrado após várias tentativas.");
-                         alert("Erro: Perfil de usuário não encontrado. Se você resetou o banco de dados, sua conta de login ainda existe mas seus dados foram apagados. Crie uma nova conta com um email diferente.");
-                         handleLogout();
+                         console.error("Erro crítico: Perfil não encontrado.");
+                         // Se não encontrou após todas as tentativas, deslogamos para forçar a "cura" no Login
+                         await supabase.auth.signOut();
+                         setIsAuthenticated(false);
+                         alert("Não foi possível encontrar seus dados de perfil. Por favor, faça login novamente para corrigirmos isso.");
                     }
                 }
             }
+        } catch (e) {
+            console.error("Erro ao carregar perfil:", e);
+            setProfileError(true);
         }
+    }, [isAuthenticated]);
 
+    useEffect(() => {
         if (isAuthenticated) {
             loadUserTenant();
         }
-    }, [isAuthenticated]);
+    }, [isAuthenticated, loadUserTenant]);
 
     // Auth Check
     useEffect(() => {
@@ -613,7 +632,7 @@ const App: React.FC = () => {
             const newId = `OS-${(maxId + 1).toString().padStart(3, '0')}`;
             const newOrder = { 
                 ...orderData, 
-                id: newId,
+                id: newId, 
                 tenant_id: tenantId
             };
             const { data, error } = await supabase.from('maintenance_orders').insert(newOrder).select().single();
@@ -654,6 +673,24 @@ const App: React.FC = () => {
         }
     };
 
+    // Contract Handlers
+    const handleOpenDeleteContractModal = (contract: Contract) => {
+        setContractToDelete(contract);
+        setDeleteContractModalOpen(true);
+    };
+
+    const handleDeleteContract = async () => {
+        if (contractToDelete && supabase) {
+            const { error } = await supabase.from('contracts').delete().eq('id', contractToDelete.id);
+            if (!error) {
+                setContracts(prev => prev.filter(c => c.id !== contractToDelete.id));
+                setDeleteContractModalOpen(false);
+                setContractToDelete(null);
+            }
+        }
+    };
+
+
     // Print Handler
     const handleOpenPrintModal = (order: RentalOrder) => setOrderToPrint(order);
     const handleClosePrintModal = () => setOrderToPrint(null);
@@ -671,6 +708,32 @@ const App: React.FC = () => {
 
     if (!isAuthenticated) {
         return <Login onLoginSuccess={handleLoginSuccess} />;
+    }
+
+    if (profileError) {
+        return (
+             <div className="h-screen w-full flex items-center justify-center bg-neutral-bg flex-col gap-4 p-8 text-center">
+                <h2 className="text-xl font-bold text-neutral-text-primary">Erro no Perfil</h2>
+                <p className="text-neutral-text-secondary">Não foi possível carregar seu perfil. Isso pode ocorrer se o cadastro ainda estiver sendo processado ou se houve um erro na conexão.</p>
+                
+                <div className="flex gap-4 mt-2">
+                    <button 
+                        onClick={() => loadUserTenant(5)} 
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+                    >
+                        <RefreshCw size={16} />
+                        Tentar Novamente
+                    </button>
+                    <button 
+                        onClick={handleLogout} 
+                        className="flex items-center gap-2 px-4 py-2 bg-neutral-card text-neutral-text-primary border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                        <LogOut size={16} />
+                        Sair
+                    </button>
+                </div>
+            </div>
+        )
     }
 
     if (loadingData && activePage === 'Dashboard' && rentalOrders.length === 0) {
@@ -715,7 +778,10 @@ const App: React.FC = () => {
                             onOpenPrintModal={handleOpenPrintModal}
                         />;
             case 'Contratos':
-                return <Contratos />;
+                return <Contratos 
+                            contracts={contracts}
+                            onDelete={handleOpenDeleteContractModal}
+                        />;
             case 'Clientes':
                 return <Clientes 
                             clients={clients} 
@@ -876,6 +942,17 @@ const App: React.FC = () => {
                             onConfirm={handleDeleteMaintenanceOrder}
                             title="Confirmar Exclusão de OS"
                             message={`Tem certeza de que deseja excluir a Ordem de Serviço "${maintenanceOrderToDelete.id}"? Esta ação não pode ser desfeita.`}
+                        />
+                    )}
+                </AnimatePresence>
+                 <AnimatePresence>
+                    {isDeleteContractModalOpen && contractToDelete && (
+                        <ConfirmationModal
+                            isOpen={isDeleteContractModalOpen}
+                            onClose={() => setDeleteContractModalOpen(false)}
+                            onConfirm={handleDeleteContract}
+                            title="Confirmar Exclusão de Contrato"
+                            message={`Tem certeza de que deseja excluir o contrato "${contractToDelete.id}"? Esta ação não pode ser desfeita.`}
                         />
                     )}
                 </AnimatePresence>

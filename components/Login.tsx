@@ -8,6 +8,17 @@ interface LoginProps {
     onLoginSuccess: () => void;
 }
 
+// Fallback para gerar UUID válido
+const generateUUID = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+};
+
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [isSignUp, setIsSignUp] = useState(false);
     const [email, setEmail] = useState('');
@@ -27,14 +38,15 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         try {
             if (!supabase) throw new Error("Cliente Supabase não configurado.");
 
-            // Basic Validation
             if (password.length < 6) {
                 throw new Error("A senha deve ter pelo menos 6 caracteres.");
             }
 
+            let authUser = null;
+
             if (isSignUp) {
-                // 1. Sign Up in Supabase Auth
-                const { data: authData, error: authError } = await supabase.auth.signUp({
+                // --- SIGN UP ---
+                const { data, error: signUpError } = await supabase.auth.signUp({
                     email,
                     password,
                     options: {
@@ -45,74 +57,87 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     }
                 });
 
-                if (authError) throw authError;
-
-                // CRITICAL CHECK:
-                // If email confirmation is enabled in Supabase, session will be null.
-                // We cannot insert into 'users' table until the user is confirmed and logged in (RLS blocks it).
-                if (authData.user && !authData.session) {
-                    setMessage('Cadastro realizado! Por favor, verifique seu email para confirmar a conta antes de fazer login.');
-                    setIsSignUp(false); // Switch back to login view
-                    setLoading(false);
-                    return;
+                if (signUpError) {
+                    if (signUpError.message?.includes("already registered") || signUpError.status === 400) {
+                        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+                        if (signInError) throw new Error("Este email já está cadastrado. Por favor, faça login.");
+                        authUser = signInData.user;
+                        setMessage("Usuário já existia. Entrando...");
+                    } else {
+                        throw signUpError;
+                    }
+                } else {
+                    authUser = data.user;
+                    // Se precisar de confirmação de email
+                    if (authUser && !authUser.email_confirmed_at && !data.session) {
+                         setMessage('Cadastro realizado! Verifique seu email para confirmar a conta.');
+                         setLoading(false);
+                         return;
+                    }
                 }
+            } else {
+                // --- SIGN IN ---
+                const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+                if (signInError) {
+                    if (signInError.message === 'Invalid login credentials') throw new Error('Email ou senha incorretos.');
+                    throw signInError;
+                }
+                authUser = data.user;
+            }
 
-                if (authData.user && authData.session) {
-                    // 2. User is logged in immediately (Auto Confirm is ON). 
-                    // Proceed to create the Tenant and User Profile.
+            if (authUser) {
+                // --- GARANTIA DE PERFIL (UPSERT) ---
+                // Verifica se o perfil existe
+                const { data: existingProfile, error: fetchError } = await supabase
+                    .from('users')
+                    .select('id, tenant_id')
+                    .eq('auth_id', authUser.id)
+                    .maybeSingle();
+
+                if (!existingProfile) {
+                    console.log("Perfil não encontrado no banco. Criando novo perfil (Auto-Healing)...");
                     
-                    // Generate a UUID for the tenant (fallback for older browsers if needed)
-                    const tenantId = crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                        return v.toString(16);
-                    });
-                    
-                    // 3. Create the user record with the new Tenant ID
-                    const { error: profileError } = await supabase.from('users').insert({
-                        id: 'USR-' + Math.floor(Math.random() * 1000).toString().padStart(3, '0'),
-                        tenant_id: tenantId,
-                        auth_id: authData.user.id,
-                        name: fullName,
+                    const newTenantId = generateUUID();
+                    const newUserId = 'USR-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+                    const nameToUse = fullName || authUser.user_metadata?.full_name || email.split('@')[0];
+
+                    // Tenta criar o perfil. Se auth_id já existir (race condition), o SQL unique index vai impedir duplicidade
+                    // O 'upsert' deve funcionar se configuramos o índice único no SQL
+                    const { error: upsertError } = await supabase.from('users').upsert({
+                        id: newUserId, // Nota: Se houver conflito no auth_id, este ID será ignorado em favor do existente no DB se usarmos ignoreDuplicates, mas aqui queremos forçar a criação se não existir
+                        tenant_id: newTenantId,
+                        auth_id: authUser.id,
+                        name: nameToUse,
                         email: email,
                         role: 'Admin',
                         status: 'Ativo',
                         lastLogin: new Date().toISOString()
-                    });
+                    }, { onConflict: 'auth_id' });
 
-                    if (profileError) {
-                        console.error('Profile creation error object:', profileError);
-                        // If specific error, show it, otherwise generic
-                        throw new Error(profileError.message || "Erro ao criar perfil da empresa no banco de dados.");
+                    if (upsertError) {
+                        console.error("Erro detalhado ao criar perfil:", JSON.stringify(upsertError, null, 2));
+                        // Se o erro for RLS, não há muito o que fazer além de checar o SQL
+                        if (upsertError.code === '42501') {
+                            throw new Error("Erro de permissão no banco de dados. Execute o script SQL de correção.");
+                        }
+                        throw new Error(`Erro ao criar perfil: ${upsertError.message}`);
                     }
-
-                    onLoginSuccess();
-                }
-            } else {
-                // Login Flow
-                const { error: authError } = await supabase.auth.signInWithPassword({
-                    email,
-                    password,
-                });
-
-                if (authError) {
-                    if (authError.message === 'Invalid login credentials') {
-                        throw new Error('Email ou senha incorretos.');
-                    }
-                    throw authError;
+                } else {
+                    // Atualiza apenas o último login
+                    await supabase.from('users').update({ lastLogin: new Date().toISOString() }).eq('auth_id', authUser.id);
                 }
                 
-                // Update last login
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                     // We don't await this to speed up UI transition, just fire and forget (or log error silently)
-                    supabase.from('users').update({ lastLogin: new Date().toISOString() }).eq('auth_id', user.id).then(() => {});
-                }
-
-                onLoginSuccess();
+                // Aguarda um momento para propagação e chama o sucesso
+                setTimeout(() => {
+                    onLoginSuccess();
+                }, 500);
             }
+
         } catch (err: any) {
-            console.error("Auth process error:", err);
-            setError(err.message || 'Ocorreu um erro inesperado. Tente novamente.');
+            console.error("Auth Error:", err);
+            setError(err.message || 'Erro inesperado.');
+            // Opcional: Deslogar se falhar para não deixar estado inconsistente
+            // await supabase.auth.signOut(); 
         } finally {
             setLoading(false);
         }

@@ -1,15 +1,8 @@
+
 import React, { useState, useMemo } from 'react';
-import { Search } from 'lucide-react';
+import { Search, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Contract, ContractStatus } from '../types';
-
-const contractData: Contract[] = [
-    { id: 'CTR-001', client: 'Construtora Alfa', startDate: '2024-08-01', endDate: '2025-07-31', value: 180000, status: 'Ativo' },
-    { id: 'CTR-002', client: 'Engenharia Beta', startDate: '2024-08-05', endDate: '2024-11-04', value: 30000, status: 'Ativo' },
-    { id: 'CTR-003', client: 'Obras Gamma', startDate: '2024-07-25', endDate: '2024-08-24', value: 45000, status: 'Pendente' },
-    { id: 'CTR-004', client: 'Projetos Delta', startDate: '2023-09-01', endDate: '2024-08-31', value: 90000, status: 'Vencido' },
-    { id: 'CTR-005', client: 'Infra Epsilon', startDate: '2024-09-01', endDate: '2024-12-31', value: 55000, status: 'Pendente' },
-];
 
 const statusColors: Record<ContractStatus, string> = {
     'Ativo': 'bg-accent-success/10 text-accent-success',
@@ -23,12 +16,17 @@ const StatusBadge: React.FC<{ status: ContractStatus }> = ({ status }) => (
     </span>
 );
 
-const Contratos: React.FC = () => {
+interface ContratosProps {
+    contracts: Contract[];
+    onDelete: (contract: Contract) => void;
+}
+
+const Contratos: React.FC<ContratosProps> = ({ contracts = [], onDelete }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<ContractStatus | 'Todos'>('Todos');
 
     const filteredContracts = useMemo(() => {
-        return contractData.filter(contract => {
+        return contracts.filter(contract => {
             const searchMatch = searchTerm.toLowerCase() === '' ||
                 contract.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 contract.client.toLowerCase().includes(searchTerm.toLowerCase());
@@ -37,7 +35,7 @@ const Contratos: React.FC = () => {
 
             return searchMatch && statusMatch;
         });
-    }, [searchTerm, statusFilter]);
+    }, [searchTerm, statusFilter, contracts]);
 
     const containerVariants: any = {
         hidden: { opacity: 0 },
@@ -97,6 +95,7 @@ const Contratos: React.FC = () => {
                             <th className="p-4 hidden md:table-cell">Vigência</th>
                             <th className="p-4 hidden sm:table-cell">Valor Total</th>
                             <th className="p-4">Status</th>
+                            <th className="p-4 text-center">Ações</th>
                         </tr>
                     </thead>
                     <motion.tbody {...({ variants: containerVariants } as any)}>
@@ -113,6 +112,13 @@ const Contratos: React.FC = () => {
                                 </td>
                                 <td className="p-4 text-neutral-text-secondary hidden sm:table-cell font-semibold">R$ {contract.value.toLocaleString('pt-BR')}</td>
                                 <td className="p-4"><StatusBadge status={contract.status} /></td>
+                                <td className="p-4 text-center">
+                                    <div className="flex items-center justify-center gap-2">
+                                        <button onClick={() => onDelete(contract)} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors" aria-label={`Excluir contrato ${contract.id}`}>
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </td>
                             </motion.tr>
                         ))}
                     </motion.tbody>
