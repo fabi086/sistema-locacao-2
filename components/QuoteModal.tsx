@@ -38,25 +38,56 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
         
         if (isNaN(utcStart) || isNaN(utcEnd) || utcEnd < utcStart) return 0;
 
-        let duration = Math.round(((utcEnd - utcStart) / MS_PER_DAY)) + 1;
-        let itemCost = 0;
-        const { monthly, biweekly, weekly, daily } = equipment.pricing;
-
-        if (duration >= 30 && monthly) {
-            itemCost += Math.floor(duration / 30) * monthly;
-            duration %= 30;
-        }
-        if (duration >= 14 && biweekly) {
-            itemCost += Math.floor(duration / 14) * biweekly;
-            duration %= 14;
-        }
-        if (duration >= 7 && weekly) {
-            itemCost += Math.floor(duration / 7) * weekly;
-            duration %= 7;
-        }
-        itemCost += duration * daily;
+        const duration = Math.round(((utcEnd - utcStart) / MS_PER_DAY)) + 1;
         
-        return itemCost;
+        const { monthly, biweekly, weekly, daily } = equipment.pricing;
+        
+        const pDaily = Number(daily) || 0;
+        const pWeekly = Number(weekly) || 0;
+        const pBiweekly = Number(biweekly) || 0; // Quinzenal = 15 dias
+        const pMonthly = Number(monthly) || 0;
+
+        // --- NOVA LÓGICA DE MELHOR PREÇO (BEST PRICE) ---
+        if (duration <= 0) return 0;
+        
+        let remainingDays = duration;
+        let totalCost = 0;
+
+        const priceTiers = [
+            { name: 'monthly', days: 30, price: pMonthly },
+            { name: 'biweekly', days: 15, price: pBiweekly },
+            { name: 'weekly', days: 7, price: pWeekly }
+        ].filter(tier => tier.price > 0);
+
+        if (priceTiers.length === 0 && pDaily > 0) {
+            return duration * pDaily;
+        }
+
+        // Passo 1: Calcular o custo base usando a abordagem gulosa (do maior período para o menor)
+        for (const tier of priceTiers) {
+            const count = Math.floor(remainingDays / tier.days);
+            if (count > 0) {
+                totalCost += count * tier.price;
+                remainingDays %= tier.days;
+            }
+        }
+        totalCost += remainingDays * pDaily;
+
+        // Passo 2: Otimizar - verificar se é mais barato usar o "teto" de um período maior
+        let bestPrice = totalCost;
+
+        // Compara o custo total com o próximo período maior se a duração for menor que o período do teto
+        if (pWeekly > 0 && duration < 7 && bestPrice > pWeekly) {
+            bestPrice = pWeekly;
+        }
+        if (pBiweekly > 0 && duration < 15 && bestPrice > pBiweekly) {
+            bestPrice = pBiweekly;
+        }
+        if (pMonthly > 0 && duration < 30 && bestPrice > pMonthly) {
+            bestPrice = pMonthly;
+        }
+        
+        return bestPrice;
     }, []);
     
     // This effect initializes the form state
@@ -77,7 +108,13 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
 
         } else {
             setClient(clients.length > 0 ? clients[0].name : '');
-            setEquipmentItems(preselectedEquipment ? [{ equipmentId: preselectedEquipment.id, equipmentName: preselectedEquipment.name, value: 0 }] : []);
+            // Se já vier com equipamento pré-selecionado (ex: clicou em "Reservar" no card), tenta calcular se tiver datas (improvável, mas seguro)
+            if (preselectedEquipment) {
+                 // Como é um novo form, as datas estão vazias, então valor é 0.
+                 setEquipmentItems([{ equipmentId: preselectedEquipment.id, equipmentName: preselectedEquipment.name, value: 0 }]);
+            } else {
+                setEquipmentItems([]);
+            }
             setStartDate('');
             setEndDate('');
             setFreightCost('');
@@ -93,7 +130,11 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
         setEquipmentItems(prevItems => prevItems.map(item => {
             const equipmentDetails = allEquipment.find(eq => eq.id === item.equipmentId);
             const value = calculateItemPrice(startDate, endDate, equipmentDetails);
-            return { ...item, value };
+            // Só atualiza se o valor mudou para evitar loops, embora o React já otimize isso
+            if (item.value !== value) {
+                return { ...item, value };
+            }
+            return item;
         }));
     }, [startDate, endDate, equipmentIds, allEquipment, calculateItemPrice]);
     
@@ -120,7 +161,14 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
         if (equipmentToAdd && !equipmentItems.some(item => item.equipmentId === equipmentToAdd)) {
             const equipment = allEquipment.find(eq => eq.id === equipmentToAdd);
             if (equipment) {
-                setEquipmentItems([...equipmentItems, { equipmentId: equipment.id, equipmentName: equipment.name, value: 0 }]);
+                // CALCULA O PREÇO IMEDIATAMENTE AO ADICIONAR
+                const initialValue = calculateItemPrice(startDate, endDate, equipment);
+                
+                setEquipmentItems([...equipmentItems, { 
+                    equipmentId: equipment.id, 
+                    equipmentName: equipment.name, 
+                    value: initialValue 
+                }]);
                 setEquipmentToAdd('');
             }
         }
@@ -276,9 +324,19 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
                                     {equipmentItems.map(item => (
                                         <div key={item.equipmentId} className="flex items-center justify-between bg-neutral-card-alt p-2 rounded-lg">
                                             <span className="text-sm font-medium text-neutral-text-primary">{item.equipmentName}</span>
-                                            <button onClick={() => handleRemoveEquipment(item.equipmentId)} className="p-1 text-red-500 hover:bg-red-100 rounded-full"><Trash2 size={16}/></button>
+                                            <div className="flex items-center gap-4">
+                                                <span className="text-sm font-semibold text-neutral-text-secondary">
+                                                    R$ {item.value?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                </span>
+                                                <button onClick={() => handleRemoveEquipment(item.equipmentId)} className="p-1 text-red-500 hover:bg-red-100 rounded-full"><Trash2 size={16}/></button>
+                                            </div>
                                         </div>
                                     ))}
+                                    {equipmentItems.length === 0 && (
+                                        <div className="text-center p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 text-neutral-text-secondary text-sm">
+                                            Nenhum equipamento adicionado.
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-2 mt-3">
                                     <div className="relative flex-grow">

@@ -55,6 +55,7 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
     // State for Table View
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<RentalStatus | 'Todos'>('Todos');
+    const [clientFilter, setClientFilter] = useState<string>('Todos');
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -70,6 +71,11 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
             return acc;
         }, {} as Record<RentalStatus, RentalOrder[]>);
     }, [orders]);
+
+    const uniqueClients = useMemo(() => {
+        const clients = new Set(orders.map(order => order.client));
+        return ['Todos', ...Array.from(clients).sort()];
+    }, [orders]);
     
     const filteredOrdersForTable = useMemo(() => {
         return orders.filter(order => {
@@ -79,10 +85,11 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                 order.equipmentItems.some(item => item.equipmentName.toLowerCase().includes(searchTerm.toLowerCase()));
             
             const statusMatch = statusFilter === 'Todos' || order.status === statusFilter;
+            const clientMatch = clientFilter === 'Todos' || order.client === clientFilter;
 
-            return searchMatch && statusMatch;
+            return searchMatch && statusMatch && clientMatch;
         });
-    }, [searchTerm, statusFilter, orders]);
+    }, [searchTerm, statusFilter, clientFilter, orders]);
 
 
     const handleDragStart = (event: DragStartEvent) => {
@@ -156,6 +163,13 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
+                    <select
+                        className="w-full md:w-48 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-sm"
+                        value={clientFilter}
+                        onChange={(e) => setClientFilter(e.target.value)}
+                    >
+                        {uniqueClients.map(client => <option key={client} value={client}>{client === 'Todos' ? 'Todos Clientes' : client}</option>)}
+                    </select>
                      <select
                         className="w-full md:w-48 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-sm"
                         value={statusFilter}
