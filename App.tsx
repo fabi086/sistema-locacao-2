@@ -345,34 +345,57 @@ const App: React.FC = () => {
             alert("Erro: Sessão inválida ou tenant não encontrado. Faça login novamente.");
             return;
         }
-        
-        let savedData: Customer | null = null;
 
-        if ('id' in clientData && clientData.id) { // Update
-            const { data, error } = await supabase.from('clients').update(clientData).eq('id', clientData.id).select().single();
-            if (!error && data) savedData = data;
-        } else { // Create
-            const maxId = clients.reduce((max, c) => Math.max(max, parseInt(c.id.split('-')[1] || '0')), 0);
-            const newId = `CLI-${(maxId + 1).toString().padStart(3, '0')}`;
-            const newClient = { 
-                ...clientData, 
-                id: newId, 
-                status: 'Ativo',
-                tenant_id: tenantId 
-            };
-            
-            const { data, error } = await supabase.from('clients').insert(newClient).select().single();
-            if (!error && data) savedData = data;
-            else console.error("Erro ao salvar cliente:", error);
+        let savedData: Customer | null = null;
+        let error: any = null;
+
+        try {
+            if ('id' in clientData && clientData.id) { // Update
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { id, tenant_id, ...updateData } = clientData;
+                const { data, error: updateError } = await supabase
+                    .from('clients')
+                    .update(updateData)
+                    .match({ id: clientData.id, tenant_id: tenantId })
+                    .select()
+                    .single();
+                
+                if (updateError) throw updateError;
+                savedData = data;
+
+            } else { // Create
+                const maxId = clients.reduce((max, c) => Math.max(max, parseInt(c.id.split('-')[1] || '0')), 0);
+                const newId = `CLI-${(maxId + 1).toString().padStart(3, '0')}`;
+                const newClient: Customer = {
+                    ...(clientData as Omit<Customer, 'id' | 'status'>),
+                    id: newId,
+                    status: 'Ativo',
+                    tenant_id: tenantId,
+                };
+                
+                const { data, error: insertError } = await supabase
+                    .from('clients')
+                    .insert(newClient)
+                    .select()
+                    .single();
+
+                if (insertError) throw insertError;
+                savedData = data;
+            }
+        } catch (e) {
+            error = e;
         }
 
         if (savedData) {
             setClients(prev => {
-                const exists = prev.find(c => c.id === savedData!.id);
+                const exists = prev.some(c => c.id === savedData!.id);
                 return exists ? prev.map(c => c.id === savedData!.id ? savedData! : c) : [savedData!, ...prev];
             });
             setAddEditClientModalOpen(false);
             setClientToEdit(null);
+        } else {
+            console.error("Erro ao salvar cliente:", error);
+            alert(`Falha ao salvar cliente: ${error?.message || 'Erro desconhecido.'}\nVerifique se o banco de dados está atualizado com o último script SQL.`);
         }
     };
     
@@ -382,12 +405,19 @@ const App: React.FC = () => {
     };
     
     const handleDeleteClient = async () => {
-        if (clientToDelete && supabase) {
-            const { error } = await supabase.from('clients').delete().eq('id', clientToDelete.id);
+        if (clientToDelete && supabase && tenantId) {
+            const { error } = await supabase
+                .from('clients')
+                .delete()
+                .match({ id: clientToDelete.id, tenant_id: tenantId });
+                
             if (!error) {
                 setClients(prev => prev.filter(c => c.id !== clientToDelete.id));
                 setDeleteClientModalOpen(false);
                 setClientToDelete(null);
+            } else {
+                console.error("Erro ao deletar cliente:", error);
+                alert(`Falha ao deletar cliente: ${error.message}`);
             }
         }
     };
