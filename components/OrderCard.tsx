@@ -1,6 +1,7 @@
+
 import React from 'react';
-import { HardHat, Calendar, Building, DollarSign, Truck } from 'lucide-react';
-import { RentalOrder } from '../types';
+import { HardHat, Calendar, Building, DollarSign, Truck, CreditCard, PieChart, CheckCircle, AlertCircle } from 'lucide-react';
+import { RentalOrder, PaymentStatus } from '../types';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -10,6 +11,13 @@ interface OrderCardProps {
     onScheduleDelivery: () => void;
     isDragging: boolean;
 }
+
+const paymentStatusConfig: Record<PaymentStatus, { color: string; Icon: React.ElementType }> = {
+    'Pendente': { color: 'text-orange-500', Icon: PieChart },
+    'Sinal Pago': { color: 'text-blue-500', Icon: PieChart },
+    'Pago': { color: 'text-green-500', Icon: CheckCircle },
+    'Vencido': { color: 'text-red-500', Icon: AlertCircle },
+};
 
 const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDelivery, isDragging }) => {
     const {
@@ -34,6 +42,8 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDeliver
     };
 
     const totalValue = order.value + (order.freightCost || 0) + (order.accessoriesCost || 0) - (order.discount || 0);
+    const paymentStatus = order.paymentStatus || 'Pendente';
+    const { color: paymentColor, Icon: PaymentIcon } = paymentStatusConfig[paymentStatus];
 
     return (
         <div
@@ -51,7 +61,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDeliver
                  </span>
             </div>
             
-            <p className="text-sm text-neutral-text-secondary mt-2 mb-4 font-semibold">
+            <p className="text-sm text-neutral-text-secondary mt-2 mb-3 font-semibold">
                 {order.equipmentItems[0]?.equipmentName}
                 {order.equipmentItems.length > 1 && (
                     <span className="ml-2 bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 rounded-full">
@@ -60,7 +70,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDeliver
                 )}
             </p>
 
-            <div className="space-y-2 text-xs text-neutral-text-secondary">
+            <div className="space-y-2 text-xs text-neutral-text-secondary border-t pt-3">
                  <div className="flex items-center gap-2">
                     <Building size={14} />
                     <span>{order.client}</span>
@@ -75,6 +85,18 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDeliver
                         <span>Entrega: {new Date(order.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
                     </div>
                 )}
+                 <div className="flex items-center justify-between pt-2">
+                    {order.paymentMethod && (
+                        <div className="flex items-center gap-1.5">
+                            <CreditCard size={14} />
+                            <span>{order.paymentMethod}</span>
+                        </div>
+                    )}
+                    <div className={`flex items-center gap-1.5 font-semibold ${paymentColor}`}>
+                        <PaymentIcon size={14} />
+                        <span>{paymentStatus}</span>
+                    </div>
+                </div>
             </div>
             
             {order.status === 'Aprovado' && (

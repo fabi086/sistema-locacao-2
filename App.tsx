@@ -13,7 +13,7 @@ import Agenda from './components/Agenda';
 import Manutencao from './components/Manutencao';
 import Usuarios from './components/Usuarios';
 import AddClientModal from './components/AddClientModal';
-import { Equipment, Customer, User, RentalOrder, RentalStatus, MaintenanceOrder, MaintenanceStatus, Contract, EquipmentStatus } from './types';
+import { Equipment, Customer, User, RentalOrder, RentalStatus, MaintenanceOrder, MaintenanceStatus, Contract, EquipmentStatus, PaymentStatus } from './types';
 import { Truck, Wrench, FileText, Users, Building, Calendar, Settings, HardHat, LogOut, ChevronLeft, LayoutDashboard, Menu, ClipboardList, Loader2, RefreshCw } from 'lucide-react';
 import AddEquipmentModal from './components/AddEquipmentModal';
 import ConfirmationModal from './components/ConfirmationModal';
@@ -238,23 +238,27 @@ const App: React.FC = () => {
                 // Fetch profile to get tenant_id
                 const { data: profile, error } = await supabase.from('users').select('tenant_id').eq('auth_id', user.id).maybeSingle();
                 
-                if(profile) {
+                if(profile && profile.tenant_id) {
                     setTenantId(profile.tenant_id);
                     setProfileError(false);
                     fetchAllData(); 
                 } else {
                     console.log(`Perfil não encontrado. Tentativas restantes: ${retries}`);
                     if (retries > 0) {
-                        // Backoff exponencial: 1s, 2s, 4s, 8s...
                         const delay = Math.pow(2, 6 - retries) * 1000;
                         setTimeout(() => loadUserTenant(retries - 1), delay);
                     } else {
-                         console.error("Erro crítico: Perfil não encontrado.");
-                         // Se não encontrou após todas as tentativas, deslogamos para forçar a "cura" no Login
-                         await supabase.auth.signOut();
+                         console.error("Erro crítico: Perfil não encontrado após várias tentativas.");
+                         if (supabase) await supabase.auth.signOut();
                          setIsAuthenticated(false);
-                         alert("Não foi possível encontrar seus dados de perfil. Por favor, faça login novamente para corrigirmos isso.");
+                         alert("Erro: Perfil de usuário não encontrado. Se você resetou o banco de dados, sua conta de login ainda existe mas seus dados foram apagados. Crie uma nova conta com um email diferente.");
                     }
+                }
+            } else {
+                if (retries > 0) {
+                    setTimeout(() => loadUserTenant(retries - 1), 500);
+                } else {
+                     handleLogout();
                 }
             }
         } catch (e) {
@@ -687,6 +691,23 @@ const App: React.FC = () => {
         }
     };
 
+    const handleUpdatePaymentStatus = async (orderId: string, newStatus: PaymentStatus) => {
+        if (!supabase) return;
+        const { data, error } = await supabase
+            .from('rental_orders')
+            .update({ paymentStatus: newStatus })
+            .eq('id', orderId)
+            .select()
+            .single();
+
+        if (!error && data) {
+            setRentalOrders(prev => prev.map(o => (o.id === orderId ? data : o)));
+        } else {
+            console.error("Error updating payment status:", error);
+            alert("Falha ao atualizar o status do pagamento.");
+        }
+    };
+
     const handleOpenScheduleDeliveryModal = (order: RentalOrder) => {
         setOrderToSchedule(order);
         setScheduleDeliveryModalOpen(true);
@@ -904,10 +925,12 @@ const App: React.FC = () => {
             case 'Locação':
                 return <Locacao 
                             orders={activeRentals} 
+                            clients={clients}
                             onOpenAddModal={handleOpenRentalOrderModal}
                             onEdit={handleOpenEditOrderModal}
                             onDelete={handleOpenDeleteOrderModal}
                             onUpdateStatus={handleUpdateOrderStatus}
+                            onUpdatePaymentStatus={handleUpdatePaymentStatus}
                             onOpenScheduleDeliveryModal={handleOpenScheduleDeliveryModal}
                             onOpenPrintModal={handleOpenPrintModal}
                         />;

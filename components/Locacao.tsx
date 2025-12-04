@@ -2,8 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Printer, Edit2, Trash2, LayoutGrid, List } from 'lucide-react';
-import { Equipment, RentalOrder, RentalStatus, Customer } from '../types';
+import { Plus, Search, Printer, Edit2, Trash2, LayoutGrid, List, MapPin } from 'lucide-react';
+import { Equipment, RentalOrder, RentalStatus, Customer, PaymentStatus } from '../types';
 import OrderCard from './OrderCard';
 import OrderDetailModal from './OrderDetailModal';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent } from '@dnd-kit/core';
@@ -12,8 +12,8 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 
 const columns: RentalStatus[] = ['Aprovado', 'Reservado', 'Em Rota', 'Ativo', 'Concluído', 'Pendente de Pagamento'];
 
-// Lista completa de status para o filtro da tabela
 const allStatuses: RentalStatus[] = ['Proposta', 'Aprovado', 'Recusado', 'Reservado', 'Em Rota', 'Ativo', 'Concluído', 'Pendente de Pagamento'];
+const allPaymentStatuses: PaymentStatus[] = ['Pendente', 'Sinal Pago', 'Pago', 'Vencido'];
 
 const pipelineStatusColors: Record<RentalStatus, string> = {
     'Proposta': 'border-gray-400',
@@ -37,18 +37,27 @@ const tableStatusColors: Record<RentalStatus, string> = {
     'Pendente de Pagamento': 'bg-orange-500/10 text-orange-600',
 };
 
+const paymentStatusColors: Record<PaymentStatus, string> = {
+    'Pendente': 'bg-orange-500/10 text-orange-600',
+    'Sinal Pago': 'bg-blue-500/10 text-blue-600',
+    'Pago': 'bg-green-500/10 text-green-600',
+    'Vencido': 'bg-red-500/10 text-red-600',
+};
+
 
 interface LocacaoProps {
     orders: RentalOrder[];
+    clients: Customer[];
     onOpenAddModal: (equipment?: Equipment | null) => void;
     onEdit: (order: RentalOrder) => void;
     onDelete: (order: RentalOrder) => void;
     onUpdateStatus: (orderId: string, newStatus: RentalStatus) => void;
+    onUpdatePaymentStatus: (orderId: string, newStatus: PaymentStatus) => void;
     onOpenScheduleDeliveryModal: (order: RentalOrder) => void;
     onOpenPrintModal: (order: RentalOrder) => void;
 }
 
-const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDelete, onUpdateStatus, onOpenScheduleDeliveryModal, onOpenPrintModal }) => {
+const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEdit, onDelete, onUpdateStatus, onUpdatePaymentStatus, onOpenScheduleDeliveryModal, onOpenPrintModal }) => {
     const [view, setView] = useState<'pipeline' | 'table'>('pipeline');
     const [selectedOrder, setSelectedOrder] = useState<RentalOrder | null>(null);
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -92,6 +101,11 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
         });
     }, [searchTerm, statusFilter, clientFilter, orders]);
 
+    const formatAddress = (clientName: string) => {
+        const client = clients.find(c => c.name === clientName);
+        if (!client || !client.street) return 'N/A';
+        return `${client.street}, ${client.number || 's/n'} - ${client.neighborhood}, ${client.city}`;
+    };
 
     const handleDragStart = (event: DragStartEvent) => {
         setActiveId(event.active.id as string);
@@ -185,7 +199,7 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                 
                 {/* Desktop Table */}
                  <motion.div 
-                    className="hidden md:block bg-neutral-card rounded-lg shadow-sm overflow-x-auto"
+                    className="hidden lg:block bg-neutral-card rounded-lg shadow-sm overflow-x-auto"
                     {...({
                         initial: "hidden",
                         animate: "visible",
@@ -197,9 +211,10 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                             <tr>
                                 <th className="p-4">ID</th>
                                 <th className="p-4">Cliente</th>
-                                <th className="p-4">Data</th>
-                                <th className="p-4">Valor</th>
-                                <th className="p-4">Status</th>
+                                <th className="p-4">Endereço</th>
+                                <th className="p-4">Pagamento</th>
+                                <th className="p-4">Status Operacional</th>
+                                <th className="p-4">Status Financeiro</th>
                                 <th className="p-4 text-center">Ações</th>
                             </tr>
                         </thead>
@@ -208,8 +223,8 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                                 <motion.tr key={order.id} className="border-b border-neutral-card-alt hover:bg-neutral-bg" {...({ variants: itemVariants } as any)}>
                                     <td className="p-4 font-semibold text-primary cursor-pointer" onClick={() => setSelectedOrder(order)}>{order.id}</td>
                                     <td className="p-4 text-neutral-text-primary font-medium">{order.client}</td>
-                                    <td className="p-4 text-neutral-text-secondary">{new Date(order.createdDate + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
-                                    <td className="p-4 text-neutral-text-secondary font-semibold">R$ {totalValue(order).toLocaleString('pt-BR')}</td>
+                                    <td className="p-4 text-neutral-text-secondary text-xs max-w-xs truncate" title={formatAddress(order.client)}>{formatAddress(order.client)}</td>
+                                    <td className="p-4 text-neutral-text-secondary">{order.paymentMethod || 'N/A'}</td>
                                     <td className="p-4">
                                          <div className="relative inline-block">
                                             <select
@@ -220,6 +235,22 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                                                 aria-label={`Mudar status do pedido ${order.id}`}
                                             >
                                                 {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-current">
+                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="p-4">
+                                        <div className="relative inline-block">
+                                            <select
+                                                value={order.paymentStatus || 'Pendente'}
+                                                onChange={(e) => onUpdatePaymentStatus(order.id, e.target.value as PaymentStatus)}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className={`pl-2.5 pr-8 py-1 text-xs font-semibold rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary border-none transition-colors ${paymentStatusColors[order.paymentStatus || 'Pendente']}`}
+                                                aria-label={`Mudar status financeiro do pedido ${order.id}`}
+                                            >
+                                                {allPaymentStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                                             </select>
                                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-current">
                                                 <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
@@ -245,9 +276,9 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                     </table>
                 </motion.div>
 
-                {/* Mobile Cards */}
+                {/* Mobile & Tablet Cards */}
                  <motion.div
-                    className="block md:hidden space-y-4"
+                    className="block lg:hidden space-y-4"
                     {...({
                         initial: "hidden",
                         animate: "visible",
@@ -270,16 +301,27 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
                                     >
                                         {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
-                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-current">
-                                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-current"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div>
+                                </div>
+                            </div>
+                            <div className="my-3 text-sm text-neutral-text-secondary space-y-2 border-t pt-2">
+                                <div className="flex items-start gap-2"><MapPin size={14} className="mt-0.5"/><span>{formatAddress(order.client)}</span></div>
+                                <div className="flex justify-between">
+                                    <span><span className="font-semibold">Pagamento:</span> {order.paymentMethod || 'N/A'}</span>
+                                     <div className="relative inline-block">
+                                        <select
+                                            value={order.paymentStatus || 'Pendente'}
+                                            onChange={(e) => onUpdatePaymentStatus(order.id, e.target.value as PaymentStatus)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className={`pl-2.5 pr-8 py-1 text-xs font-semibold rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-primary border-none transition-colors ${paymentStatusColors[order.paymentStatus || 'Pendente']}`}
+                                        >
+                                            {allPaymentStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-current"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div>
                                     </div>
                                 </div>
                             </div>
-                            <div className="my-3 text-sm text-neutral-text-secondary flex justify-between items-center border-t border-b py-2">
-                                <span><span className="font-semibold">Data:</span> {new Date(order.createdDate + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
-                                <span><span className="font-semibold">Valor:</span> R$ {totalValue(order).toLocaleString('pt-BR')}</span>
-                            </div>
-                            <div className="flex items-center justify-end gap-1">
+                            <div className="flex items-center justify-end gap-1 border-t pt-2">
                                 <button onClick={() => onEdit(order)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors"><Edit2 size={18} /></button>
                                 <button onClick={() => onOpenPrintModal(order)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors"><Printer size={18} /></button>
                                 <button onClick={() => onDelete(order)} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors"><Trash2 size={18} /></button>
@@ -300,7 +342,7 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, onOpenAddModal, onEdit, onDel
     return (
         <>
             <AnimatePresence>
-                {selectedOrder && <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />}
+                {selectedOrder && <OrderDetailModal order={selectedOrder} clients={clients} onClose={() => setSelectedOrder(null)} />}
             </AnimatePresence>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                 <div className="flex flex-col h-full">

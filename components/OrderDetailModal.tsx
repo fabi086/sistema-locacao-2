@@ -1,9 +1,17 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
-import { X, Calendar, HardHat, Building, DollarSign, CheckCircle, Truck } from 'lucide-react';
-import { RentalOrder, RentalStatus } from '../types';
+import { X, Calendar, HardHat, Building, DollarSign, CheckCircle, Truck, MapPin, CreditCard, PieChart, AlertCircle } from 'lucide-react';
+import { RentalOrder, RentalStatus, Customer, PaymentStatus } from '../types';
 
-const OrderDetailModal: React.FC<{ order: RentalOrder; onClose: () => void }> = ({ order, onClose }) => {
+const paymentStatusConfig: Record<PaymentStatus, { color: string; Icon: React.ElementType }> = {
+    'Pendente': { color: 'text-orange-500', Icon: PieChart },
+    'Sinal Pago': { color: 'text-blue-500', Icon: PieChart },
+    'Pago': { color: 'text-green-500', Icon: CheckCircle },
+    'Vencido': { color: 'text-red-500', Icon: AlertCircle },
+};
+
+const OrderDetailModal: React.FC<{ order: RentalOrder; clients: Customer[]; onClose: () => void }> = ({ order, clients, onClose }) => {
     const backdropVariants: any = {
         hidden: { opacity: 0 },
         visible: { opacity: 1 },
@@ -27,7 +35,16 @@ const OrderDetailModal: React.FC<{ order: RentalOrder; onClose: () => void }> = 
         'Pendente de Pagamento': 'bg-orange-500',
     };
     
+    const clientData = clients.find(c => c.name === order.client);
+    const formatAddress = (client?: Customer) => {
+        if (!client || !client.street) return 'Endereço não cadastrado';
+        return `${client.street}, ${client.number || 's/n'} - ${client.neighborhood}, ${client.city}/${client.state}`;
+    };
+
     const totalValue = order.value + (order.freightCost || 0) + (order.accessoriesCost || 0) - (order.discount || 0);
+
+    const paymentStatus = order.paymentStatus || 'Pendente';
+    const { color: paymentColor, Icon: PaymentIcon } = paymentStatusConfig[paymentStatus];
 
     return (
         <motion.div
@@ -66,6 +83,7 @@ const OrderDetailModal: React.FC<{ order: RentalOrder; onClose: () => void }> = 
                        <h3 className="font-bold text-lg text-neutral-text-primary border-b pb-2">Informações Gerais</h3>
                        <div className="space-y-4 text-sm">
                            <div className="flex items-start gap-3"><Building size={18} className="text-primary mt-1 flex-shrink-0"/> <div><span className="font-semibold">Cliente:</span> {order.client}</div></div>
+                           <div className="flex items-start gap-3"><MapPin size={18} className="text-primary mt-1 flex-shrink-0"/> <div><span className="font-semibold">Endereço:</span> {formatAddress(clientData)}</div></div>
                            <div className="flex items-start gap-3"><Calendar size={18} className="text-primary mt-1 flex-shrink-0"/> <div><span className="font-semibold">Período:</span> {new Date(order.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} a {new Date(order.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}</div></div>
                            {order.deliveryDate && (
                                 <div className="flex items-start gap-3"><Truck size={18} className="text-primary mt-1 flex-shrink-0"/> <div><span className="font-semibold">Entrega Agendada:</span> {new Date(order.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR')}</div></div>
@@ -81,7 +99,14 @@ const OrderDetailModal: React.FC<{ order: RentalOrder; onClose: () => void }> = 
                        </div>
                        <h3 className="font-bold text-lg text-neutral-text-primary border-b pb-2 mt-6">Resumo Financeiro</h3>
                        <div className="space-y-2 text-sm">
-                           <div className="flex justify-between"><span>Subtotal (Equipamentos):</span> <span>R$ {order.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+                            <div className="flex justify-between"><span>Forma de Pagamento:</span> <span className="font-medium">{order.paymentMethod || 'N/A'}</span></div>
+                           <div className="flex justify-between items-center">
+                               <span>Status do Pagamento:</span> 
+                               <span className={`font-semibold flex items-center gap-1.5 ${paymentColor}`}>
+                                   <PaymentIcon size={14} /> {paymentStatus}
+                                </span>
+                            </div>
+                           <div className="flex justify-between pt-2 border-t mt-2"><span>Subtotal (Equipamentos):</span> <span>R$ {order.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
                            {order.freightCost && <div className="flex justify-between"><span>Frete:</span> <span>+ R$ {order.freightCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>}
                            {order.accessoriesCost && <div className="flex justify-between"><span>Acessórios:</span> <span>+ R$ {order.accessoriesCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>}
                            {order.discount && <div className="flex justify-between text-accent-danger"><span>Desconto:</span> <span>- R$ {order.discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>}

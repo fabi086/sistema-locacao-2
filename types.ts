@@ -75,6 +75,8 @@ export interface EquipmentOrderItem {
     value: number;
 }
 
+export type PaymentStatus = 'Pendente' | 'Sinal Pago' | 'Pago' | 'Vencido';
+
 export interface RentalOrder {
     id: string;
     tenant_id?: string;
@@ -91,6 +93,8 @@ export interface RentalOrder {
     createdDate: string;
     validUntil: string;
     deliveryDate?: string;
+    paymentMethod?: string;
+    paymentStatus?: PaymentStatus;
 }
 
 

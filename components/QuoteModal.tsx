@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { X, Building, HardHat, Calendar, CheckCircle, Printer, Share2, Plus, Trash2, Package, Percent, Truck } from 'lucide-react';
-import { Equipment, Customer, RentalOrder, EquipmentOrderItem } from '../types';
+import { X, Building, HardHat, Calendar, CheckCircle, Printer, Share2, Plus, Trash2, Package, Percent, Truck, CreditCard, PieChart, MapPin } from 'lucide-react';
+import { Equipment, Customer, RentalOrder, EquipmentOrderItem, PaymentStatus } from '../types';
 
 interface QuoteModalProps {
     onClose: () => void;
@@ -13,6 +14,9 @@ interface QuoteModalProps {
     onOpenPrintModal: (order: RentalOrder) => void;
 }
 
+const paymentMethods = ['PIX', 'Boleto', 'Cartão de Crédito', 'Dinheiro'];
+const paymentStatuses: PaymentStatus[] = ['Pendente', 'Sinal Pago', 'Pago', 'Vencido'];
+
 const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselectedEquipment, orderToEdit, clients, onSave, allEquipment, onOpenPrintModal }) => {
     const [client, setClient] = useState('');
     const [equipmentItems, setEquipmentItems] = useState<EquipmentOrderItem[]>([]);
@@ -22,9 +26,18 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
     const [freightCost, setFreightCost] = useState('');
     const [accessoriesCost, setAccessoriesCost] = useState('');
     const [discountPercentage, setDiscountPercentage] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('');
+    const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('Pendente');
     const [savedOrder, setSavedOrder] = useState<RentalOrder | null>(null);
     
     const isEditing = !!orderToEdit;
+
+    const selectedClientData = useMemo(() => clients.find(c => c.name === client), [client, clients]);
+
+    const formatAddress = (c: Customer | undefined) => {
+        if (!c || !c.street) return 'Endereço não cadastrado.';
+        return `${c.street}, ${c.number || 's/n'} - ${c.neighborhood}, ${c.city}/${c.state}`;
+    };
 
     const calculateItemPrice = useCallback((start: string, end: string, equipment: Equipment | undefined): number => {
         if (!start || !end || !equipment?.pricing) return 0;
@@ -100,6 +113,8 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
             setEndDate(orderToEdit.endDate);
             setFreightCost(orderToEdit.freightCost?.toString() ?? '');
             setAccessoriesCost(orderToEdit.accessoriesCost?.toString() ?? '');
+            setPaymentMethod(orderToEdit.paymentMethod || '');
+            setPaymentStatus(orderToEdit.paymentStatus || 'Pendente');
             
             const sub = orderToEdit.value || 0;
             const disc = orderToEdit.discount || 0;
@@ -108,9 +123,7 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
 
         } else {
             setClient(clients.length > 0 ? clients[0].name : '');
-            // Se já vier com equipamento pré-selecionado (ex: clicou em "Reservar" no card), tenta calcular se tiver datas (improvável, mas seguro)
             if (preselectedEquipment) {
-                 // Como é um novo form, as datas estão vazias, então valor é 0.
                  setEquipmentItems([{ equipmentId: preselectedEquipment.id, equipmentName: preselectedEquipment.name, value: 0 }]);
             } else {
                 setEquipmentItems([]);
@@ -120,6 +133,8 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
             setFreightCost('');
             setAccessoriesCost('');
             setDiscountPercentage('');
+            setPaymentMethod('');
+            setPaymentStatus('Pendente');
         }
     }, [isEditing, orderToEdit, preselectedEquipment, clients]);
     
@@ -130,7 +145,6 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
         setEquipmentItems(prevItems => prevItems.map(item => {
             const equipmentDetails = allEquipment.find(eq => eq.id === item.equipmentId);
             const value = calculateItemPrice(startDate, endDate, equipmentDetails);
-            // Só atualiza se o valor mudou para evitar loops, embora o React já otimize isso
             if (item.value !== value) {
                 return { ...item, value };
             }
@@ -161,7 +175,6 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
         if (equipmentToAdd && !equipmentItems.some(item => item.equipmentId === equipmentToAdd)) {
             const equipment = allEquipment.find(eq => eq.id === equipmentToAdd);
             if (equipment) {
-                // CALCULA O PREÇO IMEDIATAMENTE AO ADICIONAR
                 const initialValue = calculateItemPrice(startDate, endDate, equipment);
                 
                 setEquipmentItems([...equipmentItems, { 
@@ -191,17 +204,19 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
 
         const commonData = {
             client,
-            equipmentItems, // This now includes per-item values
+            equipmentItems,
             startDate,
             endDate,
             value: subtotal,
             freightCost: parseFloat(freightCost) || undefined,
             accessoriesCost: parseFloat(accessoriesCost) || undefined,
             discount: discountAmount > 0 ? discountAmount : undefined,
+            paymentMethod: paymentMethod || undefined,
+            paymentStatus,
         };
         
         if (isEditing) {
-            onSave({ ...orderToEdit, ...commonData });
+            onSave({ ...orderToEdit, ...commonData } as RentalOrder);
         } else {
             const newOrderData = {
                 ...commonData,
@@ -274,7 +289,7 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
             } as any)}
         >
             <motion.div
-                className="bg-neutral-bg rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden"
+                className="bg-neutral-bg rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden"
                 {...({
                     variants: modalVariants,
                     onClick: (e: any) => e.stopPropagation()
@@ -289,8 +304,9 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
 
                 {!savedOrder ? (
                     <>
-                        <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 max-h-[70vh] overflow-y-auto">
+                            {/* Coluna da Esquerda */}
+                            <div className="space-y-6">
                                 <div>
                                     <label htmlFor="client" className="block text-sm font-semibold text-neutral-text-primary mb-2">Cliente</label>
                                     <div className="relative">
@@ -299,8 +315,15 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
                                             {clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                         </select>
                                     </div>
+                                    {selectedClientData && (
+                                        <div className="mt-2 text-xs p-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 flex items-start gap-2">
+                                            <MapPin size={16} className="flex-shrink-0 mt-0.5" />
+                                            <span>{formatAddress(selectedClientData)}</span>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                     <div>
                                         <label htmlFor="start-date" className="block text-sm font-semibold text-neutral-text-primary mb-2">Data de Início</label>
                                         <div className="relative">
@@ -316,63 +339,85 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-
-                             <div>
-                                <label className="block text-sm font-semibold text-neutral-text-primary mb-2">Equipamentos</label>
-                                <div className="space-y-2">
-                                    {equipmentItems.map(item => (
-                                        <div key={item.equipmentId} className="flex items-center justify-between bg-neutral-card-alt p-2 rounded-lg">
-                                            <span className="text-sm font-medium text-neutral-text-primary">{item.equipmentName}</span>
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-sm font-semibold text-neutral-text-secondary">
-                                                    R$ {item.value?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                </span>
-                                                <button onClick={() => handleRemoveEquipment(item.equipmentId)} className="p-1 text-red-500 hover:bg-red-100 rounded-full"><Trash2 size={16}/></button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {equipmentItems.length === 0 && (
-                                        <div className="text-center p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 text-neutral-text-secondary text-sm">
-                                            Nenhum equipamento adicionado.
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-2 mt-3">
-                                    <div className="relative flex-grow">
-                                        <HardHat size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
-                                        <select id="equipment" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white" value={equipmentToAdd} onChange={(e) => setEquipmentToAdd(e.target.value)}>
-                                            <option value="" disabled>Selecione para adicionar...</option>
-                                            {availableEquipment.map(eq => (<option key={eq.id} value={eq.id}>{eq.name}</option>))}
-                                        </select>
-                                    </div>
-                                    <button onClick={handleAddEquipment} className="px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"><Plus size={20}/></button>
-                                </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t">
                                  <div>
-                                    <label htmlFor="freight" className="block text-sm font-semibold text-neutral-text-primary mb-2">Valor do Frete (R$)</label>
-                                    <div className="relative"><Truck size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" /><input type="number" id="freight" placeholder="0,00" value={freightCost} onChange={e => setFreightCost(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg bg-white text-neutral-text-primary" /></div>
-                                </div>
-                                <div>
-                                    <label htmlFor="accessories" className="block text-sm font-semibold text-neutral-text-primary mb-2">Acessórios (R$)</label>
-                                    <div className="relative"><Package size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" /><input type="number" id="accessories" placeholder="0,00" value={accessoriesCost} onChange={e => setAccessoriesCost(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg bg-white text-neutral-text-primary" /></div>
-                                </div>
-                                <div>
-                                    <label htmlFor="discount" className="block text-sm font-semibold text-neutral-text-primary mb-2">Desconto (%)</label>
-                                    <div className="relative"><Percent size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" /><input type="number" id="discount" placeholder="0" value={discountPercentage} onChange={e => setDiscountPercentage(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg bg-white text-neutral-text-primary" /></div>
+                                    <label className="block text-sm font-semibold text-neutral-text-primary mb-2">Equipamentos</label>
+                                    <div className="space-y-2">
+                                        {equipmentItems.map(item => (
+                                            <div key={item.equipmentId} className="flex items-center justify-between bg-neutral-card p-2 rounded-lg">
+                                                <span className="text-sm font-medium text-neutral-text-primary">{item.equipmentName}</span>
+                                                <div className="flex items-center gap-4">
+                                                    <span className="text-sm font-semibold text-neutral-text-secondary">
+                                                        R$ {item.value?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    </span>
+                                                    <button onClick={() => handleRemoveEquipment(item.equipmentId)} className="p-1 text-red-500 hover:bg-red-100 rounded-full"><Trash2 size={16}/></button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {equipmentItems.length === 0 && (
+                                            <div className="text-center p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 text-neutral-text-secondary text-sm">
+                                                Nenhum equipamento adicionado.
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-3">
+                                        <div className="relative flex-grow">
+                                            <HardHat size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
+                                            <select id="equipment" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white" value={equipmentToAdd} onChange={(e) => setEquipmentToAdd(e.target.value)}>
+                                                <option value="" disabled>Selecione para adicionar...</option>
+                                                {availableEquipment.map(eq => (<option key={eq.id} value={eq.id}>{eq.name}</option>))}
+                                            </select>
+                                        </div>
+                                        <button onClick={handleAddEquipment} className="px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"><Plus size={20}/></button>
+                                    </div>
                                 </div>
                             </div>
-                            
-                            <div className="bg-neutral-card-alt p-4 rounded-lg space-y-2">
-                                <div className="flex justify-between items-center text-sm text-neutral-text-secondary"><span>Subtotal (Equipamentos):</span><span>R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
-                                <div className="flex justify-between items-center text-sm text-neutral-text-secondary"><span>Frete:</span><span>+ R$ {(parseFloat(freightCost) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
-                                <div className="flex justify-between items-center text-sm text-neutral-text-secondary"><span>Acessórios:</span><span>+ R$ {(parseFloat(accessoriesCost) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
-                                <div className="flex justify-between items-center text-sm text-accent-danger"><span>Desconto:</span><span>- R$ {discountAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
-                                <div className="pt-2 border-t flex justify-between items-center">
-                                    <span className="font-semibold text-neutral-text-primary">Valor Total Calculado:</span>
-                                    <span className="text-2xl font-bold text-accent-success">R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            {/* Coluna da Direita */}
+                             <div className="space-y-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                     <div className="sm:col-span-1">
+                                        <label htmlFor="freight" className="block text-sm font-semibold text-neutral-text-primary mb-2">Frete (R$)</label>
+                                        <div className="relative"><Truck size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" /><input type="number" id="freight" placeholder="0,00" value={freightCost} onChange={e => setFreightCost(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg bg-white text-neutral-text-primary" /></div>
+                                    </div>
+                                    <div className="sm:col-span-1">
+                                        <label htmlFor="accessories" className="block text-sm font-semibold text-neutral-text-primary mb-2">Acessórios (R$)</label>
+                                        <div className="relative"><Package size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" /><input type="number" id="accessories" placeholder="0,00" value={accessoriesCost} onChange={e => setAccessoriesCost(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg bg-white text-neutral-text-primary" /></div>
+                                    </div>
+                                    <div className="sm:col-span-1">
+                                        <label htmlFor="discount" className="block text-sm font-semibold text-neutral-text-primary mb-2">Desconto (%)</label>
+                                        <div className="relative"><Percent size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" /><input type="number" id="discount" placeholder="0" value={discountPercentage} onChange={e => setDiscountPercentage(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg bg-white text-neutral-text-primary" /></div>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div>
+                                        <label htmlFor="payment-method" className="block text-sm font-semibold text-neutral-text-primary mb-2">Forma de Pagamento</label>
+                                        <div className="relative">
+                                            <CreditCard size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
+                                            <select id="payment-method" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+                                                <option value="">Selecione...</option>
+                                                {paymentMethods.map(m => <option key={m} value={m}>{m}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label htmlFor="payment-status" className="block text-sm font-semibold text-neutral-text-primary mb-2">Status do Pagamento</label>
+                                        <div className="relative">
+                                            <PieChart size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
+                                            <select id="payment-status" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white" value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value as PaymentStatus)}>
+                                                {paymentStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="bg-neutral-card-alt p-4 rounded-lg space-y-2 mt-auto">
+                                    <div className="flex justify-between items-center text-sm text-neutral-text-secondary"><span>Subtotal (Equipamentos):</span><span>R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+                                    <div className="flex justify-between items-center text-sm text-neutral-text-secondary"><span>Frete:</span><span>+ R$ {(parseFloat(freightCost) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+                                    <div className="flex justify-between items-center text-sm text-neutral-text-secondary"><span>Acessórios:</span><span>+ R$ {(parseFloat(accessoriesCost) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+                                    <div className="flex justify-between items-center text-sm text-accent-danger"><span>Desconto:</span><span>- R$ {discountAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+                                    <div className="pt-2 border-t flex justify-between items-center">
+                                        <span className="font-semibold text-neutral-text-primary">Valor Total Calculado:</span>
+                                        <span className="text-2xl font-bold text-accent-success">R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
