@@ -1,7 +1,8 @@
 
+
 import React from 'react';
-import { HardHat, Calendar, Building, DollarSign, Truck, CreditCard, PieChart, CheckCircle, AlertCircle } from 'lucide-react';
-import { RentalOrder, PaymentStatus } from '../types';
+import { HardHat, Calendar, Building, DollarSign, Truck, CreditCard, PieChart, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
+import { RentalOrder, PaymentStatus, PipelineStage, RentalStatus } from '../types';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -10,6 +11,8 @@ interface OrderCardProps {
     onClick: () => void;
     onScheduleDelivery: () => void;
     isDragging: boolean;
+    stages: PipelineStage[];
+    onUpdateStatus: (orderId: string, newStatus: RentalStatus) => void;
 }
 
 const paymentStatusConfig: Record<PaymentStatus, { color: string; Icon: React.ElementType }> = {
@@ -19,7 +22,7 @@ const paymentStatusConfig: Record<PaymentStatus, { color: string; Icon: React.El
     'Vencido': { color: 'text-red-500', Icon: AlertCircle },
 };
 
-const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDelivery, isDragging }) => {
+const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDelivery, isDragging, stages, onUpdateStatus }) => {
     const {
         attributes,
         listeners,
@@ -44,6 +47,18 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDeliver
     const totalValue = order.value + (order.freightCost || 0) + (order.accessoriesCost || 0) - (order.discount || 0);
     const paymentStatus = order.paymentStatus || 'Pendente';
     const { color: paymentColor, Icon: PaymentIcon } = paymentStatusConfig[paymentStatus];
+
+    const currentStageIndex = stages.findIndex(stage => stage.name === order.status);
+    const nextStage = currentStageIndex > -1 && currentStageIndex < stages.length - 1
+        ? stages[currentStageIndex + 1]
+        : null;
+
+    const handleAdvanceStatusClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (nextStage) {
+            onUpdateStatus(order.id, nextStage.name);
+        }
+    };
 
     return (
         <div
@@ -107,6 +122,17 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onScheduleDeliver
                     >
                         <Truck size={14} />
                         Agendar Entrega
+                    </button>
+                </div>
+            )}
+            {nextStage && order.status !== 'Aprovado' && (
+                <div className="mt-4 pt-3 border-t border-neutral-card-alt">
+                    <button
+                        onClick={handleAdvanceStatusClick}
+                        className="w-full flex items-center justify-center gap-2 text-xs font-semibold bg-primary text-white px-3 py-1.5 rounded-md hover:bg-primary-dark transition-colors"
+                    >
+                        <span>Mover para "{nextStage.name}"</span>
+                        <ArrowRight size={14} />
                     </button>
                 </div>
             )}

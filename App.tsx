@@ -11,7 +11,7 @@ import Agenda from './components/Agenda';
 import Manutencao from './components/Manutencao';
 import Usuarios from './components/Usuarios';
 import AddClientModal from './components/AddClientModal';
-import { Equipment, Customer, User, RentalOrder, RentalStatus, MaintenanceOrder, MaintenanceStatus, Contract, EquipmentStatus, PaymentStatus, EquipmentCategory, PipelineStage } from './types';
+import { Equipment, Customer, User, RentalOrder, RentalStatus, MaintenanceOrder, MaintenanceStatus, Contract, EquipmentStatus, PaymentStatus, EquipmentCategory, PipelineStage, ContractStatus } from './types';
 import { Truck, Wrench, FileText, Users, Building, Calendar, Settings, HardHat, LogOut, ChevronLeft, LayoutDashboard, Menu, ClipboardList, Loader2, RefreshCw } from 'lucide-react';
 import AddEquipmentModal from './components/AddEquipmentModal';
 import ConfirmationModal from './components/ConfirmationModal';
@@ -28,6 +28,8 @@ import { supabase } from './supabaseClient';
 import AddEditContractModal from './components/AddEditContractModal';
 import CategoryManagerModal from './components/CategoryManagerModal';
 import PipelineManagerModal from './components/PipelineManagerModal';
+import ReceiptPrintModal from './components/ReceiptPrintModal';
+import ContractPrintModal from './components/ContractPrintModal';
 
 // --- CONFIGURAÇÃO DE NOTIFICAÇÃO ---
 // IMPORTANTE: Gere suas chaves VAPID em https://www.stephane-quantin.com/en/tools/generators/vapid-keys
@@ -225,6 +227,10 @@ const App: React.FC = () => {
     const [isPriceTableModalOpen, setPriceTableModalOpen] = useState(false);
     const [isCategoryManagerModalOpen, setCategoryManagerModalOpen] = useState(false);
     const [isPipelineManagerModalOpen, setPipelineManagerModalOpen] = useState(false);
+
+    const [dataForDocuments, setDataForDocuments] = useState<{ contract: Contract; order: RentalOrder } | null>(null);
+    const [isReceiptModalOpen, setReceiptModalOpen] = useState(false);
+    const [isContractModalOpen, setContractModalOpen] = useState(false);
 
 
     // Initial Data Fetch
@@ -686,6 +692,63 @@ const App: React.FC = () => {
         }
     };
 
+    const checkAndFinalizeContract = async (order: RentalOrder) => {
+        if (!supabase || !tenantId) return;
+
+        if (order.status === 'Concluído' && order.paymentStatus === 'Pago') {
+            const contractId = `CON-${order.id}`;
+            const existingContract = contracts.find(c => c.id === contractId);
+            
+            if (existingContract && existingContract.status !== 'Concluído') {
+                const { data: updatedContract, error } = await supabase
+                    .from('contracts')
+                    .update({ status: 'Concluído' as ContractStatus })
+                    .eq('id', contractId)
+                    .select()
+                    .single();
+                
+                if (updatedContract && !error) {
+                    setContracts(prev => prev.map(c => c.id === contractId ? updatedContract : c));
+                }
+            }
+        }
+    };
+
+    const checkAndCreateContract = async (order: RentalOrder) => {
+        if (!supabase || !tenantId) return;
+
+        // Condition to create the contract
+        if (order.status === 'Aprovado' && order.paymentStatus === 'Pago') {
+            const contractId = `CON-${order.id}`;
+            const contractExists = contracts.some(c => c.id === contractId);
+
+            if (!contractExists) {
+                const totalValue = order.value + (order.freightCost || 0) + (order.accessoriesCost || 0) - (order.discount || 0);
+                const newContract: Omit<Contract, 'tenant_id'> & { tenant_id: string } = {
+                    id: contractId,
+                    client: order.client,
+                    startDate: order.startDate,
+                    endDate: order.endDate,
+                    value: totalValue,
+                    status: 'Ativo', // Starts as 'Ativo'
+                    tenant_id: tenantId,
+                };
+                
+                const { data: newContractData, error: contractError } = await supabase
+                    .from('contracts')
+                    .insert(newContract)
+                    .select()
+                    .single();
+
+                if (contractError) {
+                    console.error("Erro ao criar contrato:", contractError);
+                } else if (newContractData) {
+                    setContracts(prev => [...prev, newContractData]);
+                }
+            }
+        }
+    };
+
     const handleUpdateOrderStatus = async (orderId: string, newStatus: RentalStatus) => {
         if (!supabase || !tenantId) return;
     
@@ -694,7 +757,6 @@ const App: React.FC = () => {
     
         const newHistory = [...order.statusHistory, { status: newStatus, date: new Date().toISOString() }];
     
-        // 1. Update order status in DB
         const { data: updatedOrder, error: orderError } = await supabase
             .from('rental_orders')
             .update({ status: newStatus, statusHistory: newHistory })
@@ -708,26 +770,21 @@ const App: React.FC = () => {
             return;
         }
     
-        // 2. Create an updated list of orders for local logic
         const updatedOrdersList = rentalOrders.map(o => (o.id === orderId ? updatedOrder : o));
     
-        // 3. Logic to update equipment status
         const statusesMarkingInUse: RentalStatus[] = ['Aprovado', 'Reservado', 'Em Rota', 'Ativo'];
         const statusesThatRelease: RentalStatus[] = ['Concluído', 'Recusado', 'Proposta'];
     
         const equipmentIdsInOrder = order.equipmentItems.map(item => item.equipmentId);
         const equipmentStatusUpdates: { id: string; status: EquipmentStatus }[] = [];
     
-        // If the new status puts equipment in use
         if (statusesMarkingInUse.includes(newStatus)) {
             equipmentIdsInOrder.forEach(id => {
                 equipmentStatusUpdates.push({ id, status: 'Em Uso' });
             });
         } 
-        // If the old status was "in use" and the new one is not, check if we can release it
         else if (statusesMarkingInUse.includes(order.status) && statusesThatRelease.includes(newStatus)) {
             for (const eqId of equipmentIdsInOrder) {
-                // Check if this equipment is in any OTHER active order using the UPDATED list
                 const isInOutherActiveOrder = updatedOrdersList.some(otherOrder => 
                     otherOrder.id !== orderId &&
                     statusesMarkingInUse.includes(otherOrder.status) &&
@@ -740,7 +797,6 @@ const App: React.FC = () => {
             }
         }
     
-        // 4. Update equipment in DB if needed
         if (equipmentStatusUpdates.length > 0) {
             const updates = equipmentStatusUpdates.map(eq =>
                 supabase.from('equipments').update({ status: eq.status }).eq('id', eq.id)
@@ -750,41 +806,9 @@ const App: React.FC = () => {
             const hasErrors = results.some(res => res.error);
             if (hasErrors) {
                 console.error("Error updating equipment statuses:", results.map(r => r.error).filter(Boolean));
-                alert("O status do pedido foi atualizado, mas houve um erro ao sincronizar o status dos equipamentos.");
             }
         }
         
-        // 5. Create contract if needed
-        let newContractData: Contract | null = null;
-        if (newStatus === 'Ativo') {
-            const contractId = `CON-${orderId}`;
-            const contractExists = contracts.some(c => c.id === contractId);
-    
-            if (!contractExists) {
-                const totalValue = updatedOrder.value + (updatedOrder.freightCost || 0) + (updatedOrder.accessoriesCost || 0) - (updatedOrder.discount || 0);
-                const newContract: Omit<Contract, 'tenant_id'> & { tenant_id: string } = {
-                    id: contractId,
-                    client: updatedOrder.client,
-                    startDate: updatedOrder.startDate,
-                    endDate: updatedOrder.endDate,
-                    value: totalValue,
-                    status: 'Ativo',
-                    tenant_id: tenantId,
-                };
-                const { data: contractData, error: contractError } = await supabase
-                    .from('contracts')
-                    .insert(newContract)
-                    .select()
-                    .single();
-                if (contractError) {
-                    console.error("Erro ao criar contrato:", contractError);
-                } else {
-                    newContractData = contractData;
-                }
-            }
-        }
-    
-        // 6. Update all local states
         setRentalOrders(updatedOrdersList);
     
         if (equipmentStatusUpdates.length > 0) {
@@ -796,22 +820,29 @@ const App: React.FC = () => {
             );
         }
         
-        if (newContractData) {
-            setContracts(prev => [...prev, newContractData!]);
-        }
+        await checkAndCreateContract(updatedOrder);
+        await checkAndFinalizeContract(updatedOrder);
     };
 
     const handleUpdatePaymentStatus = async (orderId: string, newStatus: PaymentStatus) => {
         if (!supabase) return;
-        const { data, error } = await supabase
+        
+        const updatePayload: { paymentStatus: PaymentStatus, paymentDate?: string } = { paymentStatus: newStatus };
+        if (newStatus === 'Pago') {
+            updatePayload.paymentDate = new Date().toISOString();
+        }
+
+        const { data: updatedOrder, error } = await supabase
             .from('rental_orders')
-            .update({ paymentStatus: newStatus })
+            .update(updatePayload)
             .eq('id', orderId)
             .select()
             .single();
 
-        if (!error && data) {
-            setRentalOrders(prev => prev.map(o => (o.id === orderId ? data : o)));
+        if (!error && updatedOrder) {
+            setRentalOrders(prev => prev.map(o => (o.id === orderId ? updatedOrder : o)));
+            await checkAndCreateContract(updatedOrder);
+            await checkAndFinalizeContract(updatedOrder);
         } else {
             console.error("Error updating payment status:", error);
             alert("Falha ao atualizar o status do pagamento.");
@@ -1028,9 +1059,19 @@ const App: React.FC = () => {
     };
 
 
-    // Print Handler
+    // Print Handlers
     const handleOpenPrintModal = (order: RentalOrder) => setOrderToPrint(order);
     const handleClosePrintModal = () => setOrderToPrint(null);
+
+    const handleOpenReceiptModal = (data: { contract: Contract; order: RentalOrder; }) => {
+        setDataForDocuments(data);
+        setReceiptModalOpen(true);
+    };
+
+    const handleOpenContractModal = (data: { contract: Contract; order: RentalOrder; }) => {
+        setDataForDocuments(data);
+        setContractModalOpen(true);
+    };
 
     // Auth Handlers
     const handleLoginSuccess = () => {
@@ -1121,8 +1162,11 @@ const App: React.FC = () => {
             case 'Contratos':
                 return <Contratos 
                             contracts={contracts}
+                            rentalOrders={rentalOrders}
                             onDelete={handleOpenDeleteContractModal}
                             onEdit={handleOpenEditContractModal}
+                            onOpenReceipt={handleOpenReceiptModal}
+                            onOpenContract={handleOpenContractModal}
                         />;
             case 'Clientes':
                 return <Clientes 
@@ -1309,6 +1353,12 @@ const App: React.FC = () => {
                 </AnimatePresence>
                  <AnimatePresence>
                     {orderToPrint && <QuotePrintModal quote={orderToPrint} onClose={handleClosePrintModal} />}
+                </AnimatePresence>
+                 <AnimatePresence>
+                    {isReceiptModalOpen && dataForDocuments && <ReceiptPrintModal data={dataForDocuments} onClose={() => setReceiptModalOpen(false)} />}
+                </AnimatePresence>
+                 <AnimatePresence>
+                    {isContractModalOpen && dataForDocuments && <ContractPrintModal data={dataForDocuments} onClose={() => setContractModalOpen(false)} />}
                 </AnimatePresence>
                 <AnimatePresence>
                     {isCategoryManagerModalOpen && (

@@ -136,6 +136,8 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEd
                                         onClick={() => setSelectedOrder(order)}
                                         onScheduleDelivery={() => onOpenScheduleDeliveryModal(order)}
                                         isDragging={activeId === order.id}
+                                        stages={stages}
+                                        onUpdateStatus={onUpdateStatus}
                                     />
                                 ))}
                             </div>

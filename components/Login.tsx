@@ -40,7 +40,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         try {
             if (!supabase) throw new Error("Cliente Supabase não configurado.");
 
-            if (password.length < 6) {
+            if (authMode !== 'login' && password.length < 6) {
                 throw new Error("A senha deve ter pelo menos 6 caracteres.");
             }
 
@@ -61,27 +61,25 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
                 if (signUpError) {
                     if (signUpError.message?.includes("already registered") || signUpError.status === 400) {
-                        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-                        if (signInError) throw new Error("Este email já está cadastrado. Por favor, faça login.");
-                        authUser = signInData.user;
-                        setMessage("Usuário já existia. Entrando...");
+                        throw new Error("Este email já está cadastrado. Por favor, faça login.");
                     } else {
                         throw signUpError;
                     }
-                } else {
-                    authUser = data.user;
-                    // Se precisar de confirmação de email
-                    if (authUser && !authUser.email_confirmed_at && !data.session) {
-                         setMessage('Cadastro realizado! Verifique seu email para confirmar a conta.');
-                         setLoading(false);
-                         return;
-                    }
+                }
+                
+                authUser = data.user;
+                // Se precisar de confirmação de email
+                if (authUser && !authUser.email_confirmed_at && !data.session) {
+                     setMessage('Cadastro realizado! Verifique seu email para confirmar a conta.');
+                     setLoading(false);
+                     return;
                 }
             } else {
                 // --- SIGN IN ---
                 const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
                 if (signInError) {
                     if (signInError.message === 'Invalid login credentials') throw new Error('Email ou senha incorretos.');
+                    if (signInError.message === 'Email not confirmed') throw new Error('Email não confirmado. Verifique sua caixa de entrada.');
                     throw signInError;
                 }
                 authUser = data.user;
@@ -89,8 +87,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
             if (authUser) {
                 // --- GARANTIA DE PERFIL (UPSERT) ---
-                // Verifica se o perfil existe
-                const { data: existingProfile, error: fetchError } = await supabase
+                const { data: existingProfile } = await supabase
                     .from('users')
                     .select('id, tenant_id')
                     .eq('auth_id', authUser.id)
@@ -115,10 +112,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     }, { onConflict: 'auth_id' });
 
                     if (upsertError) {
-                        console.error("Erro detalhado ao criar perfil:", JSON.stringify(upsertError, null, 2));
-                        if (upsertError.code === '42501') {
-                            throw new Error("Erro de permissão no banco de dados. Execute o script SQL de correção.");
-                        }
                         throw new Error(`Erro ao criar perfil: ${upsertError.message}`);
                     }
                 } else {

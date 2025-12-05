@@ -108,6 +108,7 @@ export interface RentalOrder {
     deliveryDate?: string;
     paymentMethod?: string;
     paymentStatus?: PaymentStatus;
+    paymentDate?: string;
 }
 
 
@@ -145,7 +146,7 @@ export interface Customer {
     state?: string;
 }
 
-export type ContractStatus = 'Pendente' | 'Ativo' | 'Vencido';
+export type ContractStatus = 'Pendente' | 'Ativo' | 'Vencido' | 'Concluído';
 
 export interface Contract {
     id: string;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { X, Calendar, User, Plus, Trash2, Share2, Loader2, CheckCircle } from 'lucide-react';
 import { RentalOrder, Equipment, Customer, EquipmentOrderItem } from '../types';
@@ -34,12 +34,17 @@ const QuoteModal: React.FC<QuoteModalProps> = ({
     const [freightCost, setFreightCost] = useState<string>('');
     const [accessoriesCost, setAccessoriesCost] = useState<string>('');
     const [discount, setDiscount] = useState<string>('');
+    const [discountType, setDiscountType] = useState<'R$' | '%'>('R$');
     const [paymentMethod, setPaymentMethod] = useState('');
     
-    // Sharing state
+    // Rastreia se o preço de um item foi editado manualmente pelo usuário
+    const [manualPriceOverrides, setManualPriceOverrides] = useState<Record<number, boolean>>({});
+    
     const [showSuccess, setShowSuccess] = useState(false);
     const [savedOrder, setSavedOrder] = useState<RentalOrder | null>(null);
     const [isSharing, setIsSharing] = useState(false);
+
+    const paymentOptions = ['Pix', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto Bancário', 'Transferência (TED/DOC)', '50% Sinal + 50% Entrega'];
 
     useEffect(() => {
         if (orderToEdit) {
@@ -50,18 +55,95 @@ const QuoteModal: React.FC<QuoteModalProps> = ({
             setFreightCost(orderToEdit.freightCost?.toString() || '');
             setAccessoriesCost(orderToEdit.accessoriesCost?.toString() || '');
             setDiscount(orderToEdit.discount?.toString() || '');
+            setDiscountType('R$'); // Descontos salvos são sempre em R$
             setPaymentMethod(orderToEdit.paymentMethod || '');
+            setManualPriceOverrides({}); // Assume que os preços salvos são os desejados
         } else {
+            // Reset for new quote
+            setClientName('');
+            setStartDate('');
+            setEndDate('');
+            setFreightCost('');
+            setAccessoriesCost('');
+            setDiscount('');
+            setDiscountType('R$');
+            setPaymentMethod('');
+            
             if (equipment) {
-                const defaultPrice = equipment.pricing?.monthly || equipment.pricing?.weekly || equipment.pricing?.daily || 0;
-                setSelectedItems([{
+                const initialItems = [{
                     equipmentId: equipment.id,
                     equipmentName: equipment.name,
-                    value: defaultPrice
-                }]);
+                    value: 0 // Inicia com 0, o cálculo automático cuidará disso
+                }];
+                setSelectedItems(initialItems);
+            } else {
+                 setSelectedItems([]);
             }
+            setManualPriceOverrides({});
         }
     }, [orderToEdit, equipment]);
+
+
+    const calculateBestPrice = (duration: number, pricing: Equipment['pricing']) => {
+        if (!pricing || duration <= 0) return 0;
+        
+        const { daily = 0, weekly = 0, biweekly = 0, monthly = 0 } = pricing;
+        let daysLeft = duration;
+        let totalCost = 0;
+
+        // Tenta usar a maior unidade de tempo primeiro para otimizar o custo
+        if (monthly > 0) {
+            const numMonths = Math.floor(daysLeft / 30);
+            totalCost += numMonths * monthly;
+            daysLeft %= 30;
+        }
+        if (biweekly > 0) {
+            const numBiweeks = Math.floor(daysLeft / 15);
+            totalCost += numBiweeks * biweekly;
+            daysLeft %= 15;
+        }
+        if (weekly > 0) {
+            const numWeeks = Math.floor(daysLeft / 7);
+            totalCost += numWeeks * weekly;
+            daysLeft %= 7;
+        }
+        if (daily > 0) {
+            totalCost += daysLeft * daily;
+        }
+
+        // Caso a soma de diárias seja mais barata que uma unidade maior
+        if (weekly > 0 && daily > 0 && daily * 7 < weekly) totalCost = Math.min(totalCost, duration * daily);
+        if (biweekly > 0 && daily > 0 && daily * 15 < biweekly) totalCost = Math.min(totalCost, duration * daily);
+        if (monthly > 0 && daily > 0 && daily * 30 < monthly) totalCost = Math.min(totalCost, duration * daily);
+
+        return totalCost;
+    };
+
+    // Efeito para calcular o preço automaticamente
+    useEffect(() => {
+        if (!startDate || !endDate) return;
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        if (start > end) return;
+
+        // +1 para incluir o dia final no aluguel
+        const duration = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+        
+        if (duration > 0) {
+            const updatedItems = selectedItems.map((item, index) => {
+                // Só recalcula se o preço não foi alterado manualmente
+                if (item.equipmentId && !manualPriceOverrides[index]) {
+                    const equipmentDetails = allEquipment.find(eq => eq.id === item.equipmentId);
+                    if (equipmentDetails?.pricing) {
+                        const newPrice = calculateBestPrice(duration, equipmentDetails.pricing);
+                        return { ...item, value: newPrice };
+                    }
+                }
+                return item;
+            });
+            setSelectedItems(updatedItems);
+        }
+    }, [startDate, endDate, selectedItems.map(i => i.equipmentId).join(','), allEquipment, manualPriceOverrides]);
 
     const handleAddItem = () => {
         setSelectedItems([...selectedItems, { equipmentId: '', equipmentName: '', value: 0 }]);
@@ -71,34 +153,63 @@ const QuoteModal: React.FC<QuoteModalProps> = ({
         const newItems = [...selectedItems];
         newItems.splice(index, 1);
         setSelectedItems(newItems);
-    };
 
-    const handleItemChange = (index: number, field: keyof EquipmentOrderItem, value: any) => {
-        const newItems = [...selectedItems];
-        if (field === 'equipmentId') {
-            const eq = allEquipment.find(e => e.id === value);
-            if (eq) {
-                newItems[index].equipmentId = eq.id;
-                newItems[index].equipmentName = eq.name;
-                newItems[index].value = eq.pricing?.monthly || 0;
+        const newOverrides = { ...manualPriceOverrides };
+        delete newOverrides[index];
+        // Reajusta os índices das substituições manuais
+        Object.keys(newOverrides).forEach(key => {
+            const keyNum = parseInt(key);
+            if (keyNum > index) {
+                newOverrides[keyNum - 1] = newOverrides[keyNum];
+                delete newOverrides[keyNum];
             }
-        } else {
-            newItems[index] = { ...newItems[index], [field]: value };
-        }
+        });
+        setManualPriceOverrides(newOverrides);
+    };
+    
+    const handleItemEquipmentSelect = (index: number, eq: Equipment) => {
+        const newItems = [...selectedItems];
+        newItems[index] = {
+            equipmentId: eq.id,
+            equipmentName: eq.name,
+            value: 0 // Deixa o useEffect calcular
+        };
         setSelectedItems(newItems);
+        
+        // Quando um novo equipamento é selecionado, reseta a flag de override manual
+        setManualPriceOverrides(prev => ({ ...prev, [index]: false }));
     };
 
-    const calculateTotal = () => {
+    const handleItemValueChange = (index: number, value: number) => {
+        const newItems = [...selectedItems];
+        newItems[index] = { ...newItems[index], value: isNaN(value) ? 0 : value };
+        setSelectedItems(newItems);
+        // Marca que o usuário alterou o preço manualmente
+        setManualPriceOverrides(prev => ({ ...prev, [index]: true }));
+    };
+
+    const subTotal = useMemo(() => {
         const itemsTotal = selectedItems.reduce((acc, item) => acc + (Number(item.value) || 0), 0);
         const freight = parseFloat(freightCost) || 0;
         const accessories = parseFloat(accessoriesCost) || 0;
-        const disc = parseFloat(discount) || 0;
-        return itemsTotal + freight + accessories - disc;
-    };
+        return itemsTotal + freight + accessories;
+    }, [selectedItems, freightCost, accessoriesCost]);
+
+    const calculatedDiscount = useMemo(() => {
+        const discValue = parseFloat(discount) || 0;
+        if (discountType === '%') {
+            return (subTotal * discValue) / 100;
+        }
+        return discValue;
+    }, [discount, discountType, subTotal]);
+
+    const total = useMemo(() => {
+        return subTotal - calculatedDiscount;
+    }, [subTotal, calculatedDiscount]);
 
     const handleSubmit = () => {
-        if (!clientName || !startDate || !endDate || selectedItems.length === 0) {
-            alert("Preencha os campos obrigatórios");
+        if (!clientName || !startDate || !endDate || selectedItems.some(item => !item.equipmentId)) {
+            alert("Preencha todos os campos obrigatórios, incluindo a seleção de equipamentos válidos.");
             return;
         }
 
@@ -109,11 +220,11 @@ const QuoteModal: React.FC<QuoteModalProps> = ({
             client: clientName,
             startDate,
             endDate,
-            equipmentItems: selectedItems,
+            equipmentItems: selectedItems.filter(item => item.equipmentId),
             value: itemsTotal,
             freightCost: parseFloat(freightCost) || 0,
             accessoriesCost: parseFloat(accessoriesCost) || 0,
-            discount: parseFloat(discount) || 0,
+            discount: calculatedDiscount,
             paymentMethod,
             createdDate: orderToEdit?.createdDate || new Date().toISOString().split('T')[0],
             validUntil: orderToEdit?.validUntil || new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -125,7 +236,7 @@ const QuoteModal: React.FC<QuoteModalProps> = ({
         });
     };
 
-    // PDF Generator (Duplicated logic for modal)
+    // ... (generatePdfBlob and handleWhatsAppShare remain the same)
     const generatePdfBlob = async (quote: RentalOrder): Promise<Blob> => {
         const totalValue = quote.value + (quote.freightCost || 0) + (quote.accessoriesCost || 0) - (quote.discount || 0);
         
@@ -274,6 +385,7 @@ const QuoteModal: React.FC<QuoteModalProps> = ({
         }
     };
 
+
     const backdropVariants: any = { hidden: { opacity: 0 }, visible: { opacity: 1 }, exit: { opacity: 0 } };
     const modalVariants: any = { hidden: { opacity: 0, y: 50, scale: 0.95 }, visible: { opacity: 1, y: 0, scale: 1 }, exit: { opacity: 0, y: 50, scale: 0.95 } };
 
@@ -301,20 +413,20 @@ const QuoteModal: React.FC<QuoteModalProps> = ({
     }
 
     return (
-        <motion.div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" {...({ variants: backdropVariants, initial: "hidden", animate: "visible", exit: "exit", onClick: onClose } as any)}>
-            <motion.div className="bg-neutral-bg rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]" {...({ variants: modalVariants, onClick: (e: any) => e.stopPropagation() } as any)}>
+        <motion.div className="fixed inset-0 bg-black/50 z-50 flex items-start md:items-center justify-center p-4 overflow-y-auto" {...({ variants: backdropVariants, initial: "hidden", animate: "visible", exit: "exit", onClick: onClose } as any)}>
+            <motion.div className="bg-neutral-bg rounded-xl shadow-2xl w-full max-w-4xl flex flex-col" {...({ variants: modalVariants, onClick: (e: any) => e.stopPropagation() } as any)}>
                 <header className="p-6 bg-neutral-card border-b border-neutral-card-alt flex justify-between items-center">
                     <h2 className="text-xl font-bold text-neutral-text-primary">{isEditing ? 'Editar Orçamento / Pedido' : 'Novo Orçamento'}</h2>
                     <button onClick={onClose} className="p-2 rounded-full hover:bg-neutral-card-alt text-neutral-text-secondary transition-colors"><X size={20} /></button>
                 </header>
                 
-                <div className="p-8 overflow-y-auto flex-1 space-y-6">
+                <div className="p-8 flex-1 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="md:col-span-1">
                             <label className="block text-sm font-semibold text-neutral-text-primary mb-2">Cliente</label>
                             <div className="relative">
                                 <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
-                                <select className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white" value={clientName} onChange={e => setClientName(e.target.value)}>
+                                <select className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-neutral-text-primary" value={clientName} onChange={e => setClientName(e.target.value)}>
                                     <option value="">Selecione o Cliente...</option>
                                     {clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                 </select>
@@ -323,15 +435,19 @@ const QuoteModal: React.FC<QuoteModalProps> = ({
                         <div>
                             <label className="block text-sm font-semibold text-neutral-text-primary mb-2">Data Início</label>
                             <div className="relative">
-                                <Calendar size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
-                                <input type="date" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                                <label htmlFor="start-date" className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary cursor-pointer">
+                                    <Calendar size={18} />
+                                </label>
+                                <input type="date" id="start-date" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-neutral-text-primary" value={startDate} onChange={e => setStartDate(e.target.value)} />
                             </div>
                         </div>
                         <div>
                             <label className="block text-sm font-semibold text-neutral-text-primary mb-2">Data Fim</label>
                             <div className="relative">
-                                <Calendar size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
-                                <input type="date" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                                <label htmlFor="end-date" className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary cursor-pointer">
+                                    <Calendar size={18} />
+                                </label>
+                                <input type="date" id="end-date" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-neutral-text-primary" value={endDate} onChange={e => setEndDate(e.target.value)} />
                             </div>
                         </div>
                     </div>
@@ -341,76 +457,114 @@ const QuoteModal: React.FC<QuoteModalProps> = ({
                             <h3 className="text-lg font-semibold text-neutral-text-primary">Itens</h3>
                             <button onClick={handleAddItem} className="flex items-center gap-1 text-sm text-primary font-semibold hover:text-primary-dark"><Plus size={16} /> Adicionar Item</button>
                         </div>
-                        <div className="bg-neutral-card rounded-lg border border-gray-200 overflow-hidden">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-neutral-card-alt text-neutral-text-secondary font-semibold">
-                                    <tr>
-                                        <th className="p-3">Equipamento</th>
-                                        <th className="p-3 w-32">Valor (R$)</th>
-                                        <th className="p-3 w-10"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {selectedItems.map((item, idx) => (
-                                        <tr key={idx} className="border-b border-gray-100 last:border-0">
-                                            <td className="p-3">
-                                                <select 
-                                                    className="w-full p-2 border border-gray-300 rounded-md"
-                                                    value={item.equipmentId}
-                                                    onChange={(e) => handleItemChange(idx, 'equipmentId', e.target.value)}
-                                                >
-                                                    <option value="">Selecione...</option>
-                                                    {allEquipment.map(eq => <option key={eq.id} value={eq.id}>{eq.name} ({eq.serialNumber})</option>)}
-                                                </select>
-                                            </td>
-                                            <td className="p-3">
+                        <div className="bg-neutral-card-alt/50 rounded-lg border border-gray-200">
+                             {selectedItems.length === 0 ? (
+                                <div className="p-8 text-center text-gray-500">
+                                    Nenhum item adicionado.
+                                </div>
+                            ) : (
+                                <div>
+                                    <div className="grid grid-cols-[1fr_auto_auto] gap-2 p-2 bg-neutral-card-alt text-neutral-text-secondary font-semibold text-sm">
+                                        <span>Equipamento</span>
+                                        <span className="text-right">Valor (R$)</span>
+                                        <span></span>
+                                    </div>
+                                    <div className="space-y-2 p-2">
+                                        {selectedItems.map((item, idx) => (
+                                            <div key={idx} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center bg-white p-2 rounded">
+                                                <input
+                                                    list={`equipment-list-${idx}`}
+                                                    placeholder="Digite para buscar..."
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-neutral-text-primary"
+                                                    value={item.equipmentName}
+                                                    onChange={(e) => {
+                                                        const newItems = [...selectedItems];
+                                                        newItems[idx] = { ...newItems[idx], equipmentName: e.target.value, equipmentId: '' }; // Invalidate id on typing
+                                                        setSelectedItems(newItems);
+
+                                                        const selectedEq = allEquipment.find(eq => eq.name === e.target.value);
+                                                        if (selectedEq) {
+                                                            handleItemEquipmentSelect(idx, selectedEq);
+                                                        }
+                                                    }}
+                                                />
+                                                 <datalist id={`equipment-list-${idx}`}>
+                                                    {allEquipment.map(eq => (
+                                                        <option key={eq.id} value={eq.name} />
+                                                    ))}
+                                                </datalist>
                                                 <input 
                                                     type="number" 
-                                                    className="w-full p-2 border border-gray-300 rounded-md"
+                                                    className="w-32 px-3 py-2 text-right border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-neutral-text-primary"
                                                     value={item.value}
-                                                    onChange={(e) => handleItemChange(idx, 'value', parseFloat(e.target.value))}
+                                                    onChange={(e) => handleItemValueChange(idx, parseFloat(e.target.value))}
+                                                    onFocus={(e) => e.target.select()}
                                                 />
-                                            </td>
-                                            <td className="p-3 text-center">
                                                 <button onClick={() => handleRemoveItem(idx)} className="text-red-500 hover:bg-red-50 p-1.5 rounded-full"><Trash2 size={16} /></button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {selectedItems.length === 0 && (
-                                        <tr><td colSpan={3} className="p-4 text-center text-gray-500">Nenhum item adicionado.</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                         <div>
-                            <label className="block text-sm font-semibold text-neutral-text-primary mb-2">Forma de Pagamento</label>
-                            <input 
-                                type="text" 
-                                placeholder="Ex: 50% Sinal + 50% Entrega"
-                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white"
-                                value={paymentMethod}
-                                onChange={e => setPaymentMethod(e.target.value)}
-                            />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start pt-4 border-t">
+                         <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-neutral-text-primary mb-2">Forma de Pagamento (Seleção)</label>
+                                <select 
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-neutral-text-primary"
+                                    onChange={e => { if(e.target.value) setPaymentMethod(e.target.value) }}
+                                    value={""}
+                                >
+                                    <option value="">Selecione para preencher...</option>
+                                    {paymentOptions.map(opt => <option key={opt}>{opt}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-neutral-text-primary mb-2">Forma de Pagamento (Personalizado)</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="Ex: 50% Sinal + 50% Entrega"
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-neutral-text-primary"
+                                    value={paymentMethod}
+                                    onChange={e => setPaymentMethod(e.target.value)}
+                                />
+                            </div>
                         </div>
-                        <div className="space-y-3 bg-neutral-card-alt p-4 rounded-lg">
+                        <div className="space-y-3 p-4 rounded-lg bg-white border border-gray-200">
                             <div className="flex justify-between items-center">
-                                <label className="text-sm font-semibold">Frete (R$)</label>
-                                <input type="number" className="w-32 p-1.5 border border-gray-300 rounded text-right" value={freightCost} onChange={e => setFreightCost(e.target.value)} placeholder="0.00"/>
+                                <label className="text-sm font-semibold text-neutral-text-secondary">Frete (R$)</label>
+                                <input type="number" className="w-32 p-1.5 border border-gray-300 rounded text-right bg-white text-neutral-text-primary" value={freightCost} onChange={e => setFreightCost(e.target.value)} placeholder="0.00"/>
                             </div>
                             <div className="flex justify-between items-center">
-                                <label className="text-sm font-semibold">Acessórios (R$)</label>
-                                <input type="number" className="w-32 p-1.5 border border-gray-300 rounded text-right" value={accessoriesCost} onChange={e => setAccessoriesCost(e.target.value)} placeholder="0.00"/>
+                                <label className="text-sm font-semibold text-neutral-text-secondary">Acessórios (R$)</label>
+                                <input type="number" className="w-32 p-1.5 border border-gray-300 rounded text-right bg-white text-neutral-text-primary" value={accessoriesCost} onChange={e => setAccessoriesCost(e.target.value)} placeholder="0.00"/>
                             </div>
-                            <div className="flex justify-between items-center text-accent-danger">
-                                <label className="text-sm font-semibold">Desconto (R$)</label>
-                                <input type="number" className="w-32 p-1.5 border border-red-200 rounded text-right text-accent-danger" value={discount} onChange={e => setDiscount(e.target.value)} placeholder="0.00"/>
+                           <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm font-semibold text-accent-danger">Desconto</label>
+                                    <select
+                                        value={discountType}
+                                        onChange={(e) => setDiscountType(e.target.value as '%' | 'R$')}
+                                        className="text-xs border border-gray-300 rounded h-6 px-1 bg-white focus:ring-1 focus:ring-primary focus:border-primary"
+                                    >
+                                        <option value="R$">R$</option>
+                                        <option value="%">%</option>
+                                    </select>
+                                </div>
+                                <input
+                                    type="number"
+                                    className="w-32 p-1.5 border border-gray-300 rounded text-right bg-white text-accent-danger"
+                                    value={discount}
+                                    onChange={e => setDiscount(e.target.value)}
+                                    placeholder="0.00"
+                                />
                             </div>
-                            <div className="flex justify-between items-center pt-3 border-t border-gray-300">
-                                <span className="font-bold text-lg">Total</span>
-                                <span className="font-bold text-lg text-primary">R$ {calculateTotal().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            <div className="flex justify-between items-center pt-3 border-t border-gray-200 mt-3">
+                                <span className="font-bold text-lg text-neutral-text-primary">Total</span>
+                                <span className="font-bold text-lg text-primary">R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                             </div>
                         </div>
                     </div>
