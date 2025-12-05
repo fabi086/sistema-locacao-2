@@ -8,6 +8,8 @@ interface LoginProps {
     onLoginSuccess: () => void;
 }
 
+type AuthMode = 'login' | 'signup' | 'forgotPassword';
+
 // Fallback para gerar UUID válido
 const generateUUID = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -20,7 +22,7 @@ const generateUUID = () => {
 };
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
-    const [isSignUp, setIsSignUp] = useState(false);
+    const [authMode, setAuthMode] = useState<AuthMode>('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [companyName, setCompanyName] = useState('');
@@ -44,7 +46,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
             let authUser = null;
 
-            if (isSignUp) {
+            if (authMode === 'signup') {
                 // --- SIGN UP ---
                 const { data, error: signUpError } = await supabase.auth.signUp({
                     email,
@@ -101,10 +103,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     const newUserId = 'USR-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
                     const nameToUse = fullName || authUser.user_metadata?.full_name || email.split('@')[0];
 
-                    // Tenta criar o perfil. Se auth_id já existir (race condition), o SQL unique index vai impedir duplicidade
-                    // O 'upsert' deve funcionar se configuramos o índice único no SQL
                     const { error: upsertError } = await supabase.from('users').upsert({
-                        id: newUserId, // Nota: Se houver conflito no auth_id, este ID será ignorado em favor do existente no DB se usarmos ignoreDuplicates, mas aqui queremos forçar a criação se não existir
+                        id: newUserId,
                         tenant_id: newTenantId,
                         auth_id: authUser.id,
                         name: nameToUse,
@@ -116,18 +116,15 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
                     if (upsertError) {
                         console.error("Erro detalhado ao criar perfil:", JSON.stringify(upsertError, null, 2));
-                        // Se o erro for RLS, não há muito o que fazer além de checar o SQL
                         if (upsertError.code === '42501') {
                             throw new Error("Erro de permissão no banco de dados. Execute o script SQL de correção.");
                         }
                         throw new Error(`Erro ao criar perfil: ${upsertError.message}`);
                     }
                 } else {
-                    // Atualiza apenas o último login
                     await supabase.from('users').update({ lastLogin: new Date().toISOString() }).eq('auth_id', authUser.id);
                 }
                 
-                // Aguarda um momento para propagação e chama o sucesso
                 setTimeout(() => {
                     onLoginSuccess();
                 }, 500);
@@ -136,11 +133,40 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         } catch (err: any) {
             console.error("Auth Error:", err);
             setError(err.message || 'Erro inesperado.');
-            // Opcional: Deslogar se falhar para não deixar estado inconsistente
-            // await supabase.auth.signOut(); 
         } finally {
             setLoading(false);
         }
+    };
+
+    const handlePasswordReset = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        setMessage('');
+        setLoading(true);
+
+        try {
+            if (!supabase) throw new Error("Cliente Supabase não configurado.");
+            
+            const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: window.location.origin,
+            });
+
+            if (resetError) throw resetError;
+
+            setMessage("Verifique seu email para as instruções de recuperação de senha.");
+            
+        } catch (err: any) {
+            setError(err.message || 'Erro ao tentar recuperar a senha.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const switchMode = (mode: AuthMode) => {
+        setAuthMode(mode);
+        setError('');
+        setMessage('');
+        setPassword('');
     };
 
     return (
@@ -159,13 +185,15 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         <h1 className="text-3xl font-bold text-primary">ObraFácil</h1>
                     </div>
                     <p className="text-neutral-text-secondary">
-                        {isSignUp ? 'Crie sua conta e gerencie sua locadora.' : 'Acesse sua conta para gerenciar.'}
+                        {authMode === 'signup' && 'Crie sua conta e gerencie sua locadora.'}
+                        {authMode === 'login' && 'Acesse sua conta para gerenciar.'}
+                        {authMode === 'forgotPassword' && 'Digite seu email para recuperar sua senha.'}
                     </p>
                 </div>
-
-                <form className="mt-8 space-y-6" onSubmit={handleAuth}>
+                
+                <form className="mt-8 space-y-6" onSubmit={authMode === 'forgotPassword' ? handlePasswordReset : handleAuth}>
                     <div className="rounded-md shadow-sm space-y-4">
-                        {isSignUp && (
+                         {authMode === 'signup' && (
                             <>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Empresa</label>
@@ -173,7 +201,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                         <Building size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
                                         <input
                                             type="text"
-                                            required={isSignUp}
+                                            required={authMode === 'signup'}
                                             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-gray-900"
                                             placeholder="Minha Locadora Ltda"
                                             value={companyName}
@@ -187,7 +215,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                         <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
                                         <input
                                             type="text"
-                                            required={isSignUp}
+                                            required={authMode === 'signup'}
                                             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-gray-900"
                                             placeholder="João Silva"
                                             value={fullName}
@@ -212,22 +240,34 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                 />
                             </div>
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
-                            <div className="relative">
-                                <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
-                                <input
-                                    type="password"
-                                    required
-                                    minLength={6}
-                                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-gray-900"
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                />
-                                <p className="text-xs text-gray-500 mt-1">Mínimo 6 caracteres</p>
+
+                        {authMode !== 'forgotPassword' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                                <div className="relative">
+                                    <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
+                                    <input
+                                        type="password"
+                                        required
+                                        minLength={6}
+                                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-gray-900"
+                                        placeholder="••••••••"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                    />
+                                </div>
+                                {authMode === 'login' && (
+                                    <div className="text-right text-sm mt-1">
+                                        <button type="button" onClick={() => switchMode('forgotPassword')} className="font-semibold text-primary hover:text-primary-dark hover:underline">
+                                            Esqueceu a senha?
+                                        </button>
+                                    </div>
+                                )}
+                                {authMode === 'signup' && (
+                                     <p className="text-xs text-gray-500 mt-1">Mínimo 6 caracteres</p>
+                                )}
                             </div>
-                        </div>
+                        )}
                     </div>
 
                     {error && (
@@ -247,17 +287,31 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                             disabled={loading}
                             className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-dark transition-colors disabled:opacity-70 shadow-sm items-center gap-2"
                         >
-                            {loading ? <Loader2 className="animate-spin h-5 w-5" /> : (isSignUp ? "Criar Conta" : "Entrar")}
+                            {loading ? <Loader2 className="animate-spin h-5 w-5" /> : 
+                                authMode === 'signup' ? 'Criar Conta' :
+                                authMode === 'login' ? 'Entrar' : 'Recuperar Senha'
+                            }
                         </button>
                         
                         <div className="text-center">
-                            <button
-                                type="button"
-                                onClick={() => { setIsSignUp(!isSignUp); setError(''); setMessage(''); }}
-                                className="text-sm font-semibold text-primary hover:text-primary-dark hover:underline transition-colors"
-                            >
-                                {isSignUp ? "Já tem uma conta? Fazer login" : "Não tem uma conta? Cadastre-se"}
-                            </button>
+                            {authMode !== 'forgotPassword' && (
+                                <button
+                                    type="button"
+                                    onClick={() => switchMode(authMode === 'login' ? 'signup' : 'login')}
+                                    className="text-sm font-semibold text-primary hover:text-primary-dark hover:underline transition-colors"
+                                >
+                                    {authMode === 'signup' ? "Já tem uma conta? Fazer login" : "Não tem uma conta? Cadastre-se"}
+                                </button>
+                            )}
+                             {authMode === 'forgotPassword' && (
+                                <button
+                                    type="button"
+                                    onClick={() => switchMode('login')}
+                                    className="text-sm font-semibold text-primary hover:text-primary-dark hover:underline transition-colors"
+                                >
+                                    Voltar para o login
+                                </button>
+                            )}
                         </div>
                     </div>
                 </form>

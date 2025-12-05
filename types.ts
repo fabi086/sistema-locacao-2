@@ -34,6 +34,13 @@ export interface EquipmentCategory {
     tenant_id?: string;
 }
 
+export interface PipelineStage {
+    id: string;
+    name: string;
+    color: string;
+    isCore: boolean;
+}
+
 
 export interface RentalHistoryItem {
     id: string;
@@ -68,7 +75,7 @@ export interface Equipment {
     };
 }
 
-export type RentalStatus = 'Proposta' | 'Aprovado' | 'Recusado' | 'Reservado' | 'Em Rota' | 'Ativo' | 'Concluído' | 'Pendente de Pagamento';
+export type RentalStatus = string;
 
 export interface StatusHistory {
     status: RentalStatus;

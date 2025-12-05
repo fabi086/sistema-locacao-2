@@ -11,7 +11,7 @@ import Agenda from './components/Agenda';
 import Manutencao from './components/Manutencao';
 import Usuarios from './components/Usuarios';
 import AddClientModal from './components/AddClientModal';
-import { Equipment, Customer, User, RentalOrder, RentalStatus, MaintenanceOrder, MaintenanceStatus, Contract, EquipmentStatus, PaymentStatus, EquipmentCategory } from './types';
+import { Equipment, Customer, User, RentalOrder, RentalStatus, MaintenanceOrder, MaintenanceStatus, Contract, EquipmentStatus, PaymentStatus, EquipmentCategory, PipelineStage } from './types';
 import { Truck, Wrench, FileText, Users, Building, Calendar, Settings, HardHat, LogOut, ChevronLeft, LayoutDashboard, Menu, ClipboardList, Loader2, RefreshCw } from 'lucide-react';
 import AddEquipmentModal from './components/AddEquipmentModal';
 import ConfirmationModal from './components/ConfirmationModal';
@@ -48,6 +48,16 @@ const navItems = [
 
 type Page = typeof navItems[number]['label'] | 'Configurações' | 'Integrações';
 
+const defaultStageColors: Record<string, string> = {
+    'Aprovado': '#3B82F6', 
+    'Reservado': '#8B5CF6',
+    'Em Rota': '#F59E0B', 
+    'Ativo': '#22C55E',
+    'Concluído': '#6B7280',
+    'Pendente de Pagamento': '#F97316', 
+};
+
+const initialPipelineStages: string[] = ['Aprovado', 'Reservado', 'Em Rota', 'Ativo', 'Concluído', 'Pendente de Pagamento'];
 
 const Sidebar: React.FC<{ 
     activePage: Page; 
@@ -166,7 +176,14 @@ const App: React.FC = () => {
     const [maintenanceOrders, setMaintenanceOrders] = useState<MaintenanceOrder[]>([]);
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [equipmentCategories, setEquipmentCategories] = useState<EquipmentCategory[]>([]);
-    const [pipelineStages, setPipelineStages] = useState<RentalStatus[]>(['Aprovado', 'Reservado', 'Em Rota', 'Ativo', 'Concluído', 'Pendente de Pagamento']);
+    const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>(
+        initialPipelineStages.map(stageName => ({
+            id: stageName,
+            name: stageName,
+            color: defaultStageColors[stageName] || '#cccccc',
+            isCore: true
+        }))
+    );
 
 
     // Modals & UI State
@@ -995,7 +1012,17 @@ const App: React.FC = () => {
     };
     
     // Pipeline Handlers
-    const handleSavePipelineStages = (newStages: RentalStatus[]) => {
+    const handleSavePipeline = (newStages: PipelineStage[]) => {
+        const stagesToDelete = pipelineStages.filter(
+            oldStage => !newStages.some(newStage => newStage.id === oldStage.id)
+        );
+
+        for (const stage of stagesToDelete) {
+            if (rentalOrders.some(order => order.status === stage.name)) {
+                alert(`A etapa "${stage.name}" está em uso e não pode ser excluída.`);
+                return;
+            }
+        }
         setPipelineStages(newStages);
         setPipelineManagerModalOpen(false);
     };
@@ -1301,7 +1328,8 @@ const App: React.FC = () => {
                             isOpen={isPipelineManagerModalOpen}
                             onClose={() => setPipelineManagerModalOpen(false)}
                             stages={pipelineStages}
-                            onSave={handleSavePipelineStages}
+                            onSave={handleSavePipeline}
+                            rentalOrders={rentalOrders}
                         />
                     )}
                 </AnimatePresence>
