@@ -35,16 +35,14 @@ const Orcamentos: React.FC<OrcamentosProps> = ({ quotes, clients, onOpenAddModal
     const [sharingQuoteId, setSharingQuoteId] = useState<string | null>(null);
     
     const generatePdfBlob = async (quote: RentalOrder) => {
-        // Criar um elemento temporário para renderizar o orçamento
         const element = document.createElement('div');
         element.style.position = 'absolute';
         element.style.left = '-9999px';
         element.style.top = '0';
-        element.style.width = '800px'; // Tamanho A4 aproximado em pixels
+        element.style.width = '800px'; 
         element.style.backgroundColor = 'white';
         element.style.padding = '40px';
         
-        // Construir o HTML do orçamento (versão simplificada para PDF)
         const subtotal = quote.value;
         const total = subtotal + (quote.freightCost || 0) + (quote.accessoriesCost || 0) - (quote.discount || 0);
         
@@ -111,10 +109,8 @@ const Orcamentos: React.FC<OrcamentosProps> = ({ quotes, clients, onOpenAddModal
                 return;
             }
             
-            // 1. Gerar PDF
             const pdfBlob = await generatePdfBlob(quote);
             
-            // 2. Upload para Supabase Storage
             const fileName = `orcamento_${quote.id}_${Date.now()}.pdf`;
             const { error: uploadError } = await supabase.storage
                 .from('quotes')
@@ -122,12 +118,10 @@ const Orcamentos: React.FC<OrcamentosProps> = ({ quotes, clients, onOpenAddModal
             
             if (uploadError) throw uploadError;
             
-            // 3. Obter Link Público
             const { data: { publicUrl } } = supabase.storage
                 .from('quotes')
                 .getPublicUrl(fileName);
 
-            // 4. Montar mensagem
             const phoneNumber = clientInfo.phone.replace(/\D/g, '');
             const fullPhoneNumber = phoneNumber.length > 10 ? `55${phoneNumber}` : `55${phoneNumber}`;
             
@@ -143,9 +137,9 @@ const Orcamentos: React.FC<OrcamentosProps> = ({ quotes, clients, onOpenAddModal
             
             const url = `https://wa.me/${fullPhoneNumber}?text=${encodeURIComponent(message)}`;
             window.open(url, '_blank');
-        } catch (error) {
+        } catch (error: any) {
             console.error("Erro ao compartilhar:", error);
-            alert("Houve um erro ao gerar ou compartilhar o PDF. Verifique se o bucket 'quotes' existe e é público no Supabase.");
+            alert(`Houve um erro ao gerar ou compartilhar o PDF: ${error.message || error}`);
         } finally {
             setSharingQuoteId(null);
         }

@@ -28,6 +28,11 @@ import { supabase } from './supabaseClient';
 import AddEditContractModal from './components/AddEditContractModal';
 import CategoryManagerModal from './components/CategoryManagerModal';
 
+// --- CONFIGURAÇÃO DE NOTIFICAÇÃO ---
+// IMPORTANTE: Gere suas chaves VAPID em https://www.stephane-quantin.com/en/tools/generators/vapid-keys
+// Substitua a string abaixo pela sua CHAVE PÚBLICA
+const VAPID_PUBLIC_KEY = 'SUBSTITUA_PELA_SUA_PUBLIC_KEY_AQUI'; 
+
 const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard' },
     { icon: HardHat, label: 'Equipamentos' },
@@ -127,6 +132,21 @@ const Sidebar: React.FC<{
     );
 };
 
+// Utility to convert VAPID key
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+ 
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+ 
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
 const App: React.FC = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -218,6 +238,41 @@ const App: React.FC = () => {
         }
     };
     
+    // --- LÓGICA DE NOTIFICAÇÃO PUSH ---
+    useEffect(() => {
+        const subscribeToPush = async () => {
+            if (isAuthenticated && tenantId && 'serviceWorker' in navigator && 'PushManager' in window) {
+                try {
+                    const registration = await navigator.serviceWorker.ready;
+                    const subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                    });
+
+                    // Salva a subscription no Supabase
+                    const { error } = await supabase.from('push_subscriptions').upsert({
+                        user_id: (await supabase.auth.getUser()).data.user?.id,
+                        tenant_id: tenantId,
+                        endpoint: subscription.endpoint,
+                        p256dh: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh')!))),
+                        auth: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth')!)))
+                    });
+
+                    if (error) console.error("Erro ao salvar subscription:", error);
+                    else console.log("Notificações Push ativadas com sucesso!");
+
+                } catch (error) {
+                    console.error("Erro ao registrar push:", error);
+                }
+            }
+        };
+
+        if (isAuthenticated && tenantId && VAPID_PUBLIC_KEY !== 'SUBSTITUA_PELA_SUA_PUBLIC_KEY_AQUI') {
+            subscribeToPush();
+        }
+    }, [isAuthenticated, tenantId]);
+
+
     const handleLogout = async () => {
         if (supabase) await supabase.auth.signOut();
         setIsAuthenticated(false);
@@ -256,7 +311,6 @@ const App: React.FC = () => {
                         setTimeout(() => loadUserTenant(retries - 1), delay);
                     } else {
                          console.error("Erro crítico: Perfil não encontrado após várias tentativas.");
-                         // Removido alerta intrusivo para permitir auto-correção via logout
                          handleLogout();
                     }
                 }

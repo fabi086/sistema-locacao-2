@@ -343,9 +343,9 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
             
             const url = `https://wa.me/${fullPhoneNumber}?text=${encodeURIComponent(message)}`;
             window.open(url, '_blank');
-        } catch (error) {
+        } catch (error: any) {
             console.error("Erro ao compartilhar:", error);
-            alert("Erro ao gerar/enviar PDF. Verifique se o bucket 'quotes' existe no Supabase Storage e é público.");
+            alert(`Erro ao gerar/enviar PDF: ${error.message || error}. Verifique se o bucket 'quotes' existe no Supabase Storage e é público.`);
         } finally {
             setIsSharing(false);
         }
