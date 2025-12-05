@@ -127,7 +127,7 @@ const QuotePrintModal: React.FC<QuotePrintModalProps> = ({ quote, onClose }) => 
                     <footer className="text-center text-xs text-gray-500 pt-6 border-t border-gray-200">
                         <p className="font-semibold mb-1">Termos e Condições</p>
                         <p>Esta proposta é válida por 15 dias a partir da data de emissão. Pagamento conforme combinado.</p>
-                        <p className="mt-4">Obrigado pela preferência!</p>
+                        <p className="mt-4">Agradecemos a sua preferência!</p>
                     </footer>
                 </div>
             </motion.div>
