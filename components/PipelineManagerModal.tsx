@@ -1,46 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, GripVertical, Palette, Edit2, Trash2, Check, Plus } from 'lucide-react';
+import { X, Palette, Edit2, Trash2, Check, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import { PipelineStage, RentalOrder } from '../types';
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
-interface SortableStageItemProps {
+interface StageItemProps {
     stage: PipelineStage;
+    index: number;
+    totalStages: number;
     isEditing: boolean;
+    onMove: (index: number, direction: 'up' | 'down') => void;
     onEditStart: (stage: PipelineStage) => void;
     onDelete: (stage: PipelineStage) => void;
     onUpdate: (stage: PipelineStage) => void;
     onCancelEdit: () => void;
 }
 
-const SortableStageItem: React.FC<SortableStageItemProps> = ({ stage, isEditing, onEditStart, onDelete, onUpdate, onCancelEdit }) => {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-    } = useSortable({ id: stage.id });
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-    };
-
+const StageItem: React.FC<StageItemProps> = ({ stage, index, totalStages, isEditing, onMove, onEditStart, onDelete, onUpdate, onCancelEdit }) => {
     const [editedStage, setEditedStage] = useState(stage);
 
     useEffect(() => {
@@ -52,11 +27,17 @@ const SortableStageItem: React.FC<SortableStageItemProps> = ({ stage, isEditing,
     };
 
     return (
-        <div ref={setNodeRef} style={style} className="bg-neutral-card p-3 rounded-lg flex items-center justify-between shadow-sm">
+        <div className="bg-neutral-card p-3 rounded-lg flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3 flex-grow">
-                <button {...attributes} {...listeners} className="cursor-grab p-1 text-neutral-text-secondary/60 hover:bg-gray-100 rounded-md active:cursor-grabbing">
-                    <GripVertical size={18} />
-                </button>
+                 <div className="flex flex-col">
+                    <button onClick={() => onMove(index, 'up')} disabled={index === 0} className="p-1 text-neutral-text-secondary/60 hover:bg-gray-100 rounded-md disabled:opacity-30 disabled:cursor-not-allowed">
+                        <ChevronUp size={16} />
+                    </button>
+                     <button onClick={() => onMove(index, 'down')} disabled={index === totalStages - 1} className="p-1 text-neutral-text-secondary/60 hover:bg-gray-100 rounded-md disabled:opacity-30 disabled:cursor-not-allowed">
+                        <ChevronDown size={16} />
+                    </button>
+                </div>
+                <span className="font-semibold text-neutral-text-secondary w-6 text-center">{index + 1}.</span>
                 <div className="w-5 h-5 rounded-full border border-gray-200" style={{ backgroundColor: isEditing ? editedStage.color : stage.color }} />
                 {isEditing ? (
                     <input
@@ -111,22 +92,19 @@ const PipelineManagerModal: React.FC<PipelineManagerModalProps> = ({ isOpen, onC
     const [newStageName, setNewStageName] = useState('');
     const [newStageColor, setNewStageColor] = useState('#CCCCCC');
     
-    const sensors = useSensors(
-        useSensor(PointerSensor, {
-          activationConstraint: {
-            distance: 5,
-          },
-        })
-    );
+    useEffect(() => {
+        setLocalStages(stages);
+    }, [stages, isOpen]);
 
-    const handleDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event;
-        if (over && active.id !== over.id) {
-            setLocalStages((items) => {
-                const oldIndex = items.findIndex(item => item.id === active.id);
-                const newIndex = items.findIndex(item => item.id === over.id);
-                return arrayMove(items, oldIndex, newIndex);
-            });
+    const handleMoveStage = (index: number, direction: 'up' | 'down') => {
+        if (direction === 'up' && index > 0) {
+            const newStages = [...localStages];
+            [newStages[index - 1], newStages[index]] = [newStages[index], newStages[index - 1]]; // Swap
+            setLocalStages(newStages);
+        } else if (direction === 'down' && index < localStages.length - 1) {
+            const newStages = [...localStages];
+            [newStages[index + 1], newStages[index]] = [newStages[index], newStages[index + 1]]; // Swap
+            setLocalStages(newStages);
         }
     };
 
@@ -185,24 +163,23 @@ const PipelineManagerModal: React.FC<PipelineManagerModalProps> = ({ isOpen, onC
                 </header>
                 
                 <div className="p-6 flex-1 overflow-y-auto">
-                    <p className="text-sm text-neutral-text-secondary mb-4">Arraste e solte as etapas para reordenar as colunas na visualização do pipeline de locação.</p>
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                        <SortableContext items={localStages.map(s => s.id)} strategy={verticalListSortingStrategy}>
-                            <div className="space-y-2">
-                                {localStages.map(stage => (
-                                    <SortableStageItem 
-                                        key={stage.id} 
-                                        stage={stage} 
-                                        isEditing={editingStageId === stage.id}
-                                        onEditStart={() => setEditingStageId(stage.id)}
-                                        onCancelEdit={() => setEditingStageId(null)}
-                                        onDelete={handleDeleteStage}
-                                        onUpdate={handleUpdateStage}
-                                    />
-                                ))}
-                            </div>
-                        </SortableContext>
-                    </DndContext>
+                    <p className="text-sm text-neutral-text-secondary mb-4">Use as setas para reordenar as colunas na visualização do pipeline de locação.</p>
+                     <div className="space-y-2">
+                        {localStages.map((stage, index) => (
+                            <StageItem 
+                                key={stage.id} 
+                                stage={stage}
+                                index={index}
+                                totalStages={localStages.length}
+                                isEditing={editingStageId === stage.id}
+                                onMove={handleMoveStage}
+                                onEditStart={() => setEditingStageId(stage.id)}
+                                onCancelEdit={() => setEditingStageId(null)}
+                                onDelete={handleDeleteStage}
+                                onUpdate={handleUpdateStage}
+                            />
+                        ))}
+                    </div>
                 </div>
                 
                  <div className="p-6 bg-neutral-card-alt border-t">
