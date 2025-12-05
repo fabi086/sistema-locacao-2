@@ -1,4 +1,5 @@
 
+
 import type { LucideIcon } from 'lucide-react';
 
 export interface Kpi {
@@ -27,7 +28,12 @@ export interface RevenueData {
 }
 
 export type EquipmentStatus = 'Disponível' | 'Em Uso' | 'Manutenção';
-export type EquipmentCategory = 'Escavadeiras' | 'Betoneiras' | 'Guindastes' | 'Andaimes';
+export interface EquipmentCategory {
+    id: string;
+    name: string;
+    tenant_id?: string;
+}
+
 
 export interface RentalHistoryItem {
     id: string;
@@ -48,7 +54,7 @@ export interface Equipment {
     id: string;
     tenant_id?: string;
     name: string;
-    category: EquipmentCategory;
+    category: string;
     serialNumber: string;
     status: EquipmentStatus;
     location: string;

@@ -18,16 +18,17 @@ const StatusBadge: React.FC<{ status: EquipmentStatus }> = ({ status }) => (
 
 interface EquipamentosProps {
     equipment: Equipment[];
+    categories: EquipmentCategory[];
     onOpenQuoteModal: (equipment: Equipment) => void;
     onAdd: () => void;
     onEdit: (equipment: Equipment) => void;
     onDelete: (equipment: Equipment) => void;
 }
 
-const Equipamentos: React.FC<EquipamentosProps> = ({ equipment, onOpenQuoteModal, onAdd, onEdit, onDelete }) => {
+const Equipamentos: React.FC<EquipamentosProps> = ({ equipment, categories, onOpenQuoteModal, onAdd, onEdit, onDelete }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<EquipmentStatus | 'Todos'>('Todos');
-    const [categoryFilter, setCategoryFilter] = useState<EquipmentCategory | 'Todas'>('Todas');
+    const [categoryFilter, setCategoryFilter] = useState<string | 'Todas'>('Todas');
     const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
 
     const filteredEquipment = useMemo(() => {
@@ -99,13 +100,10 @@ const Equipamentos: React.FC<EquipamentosProps> = ({ equipment, onOpenQuoteModal
                         <select
                             className="w-full md:w-40 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-sm"
                             value={categoryFilter}
-                            onChange={(e) => setCategoryFilter(e.target.value as EquipmentCategory | 'Todas')}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
                         >
                             <option value="Todas">Todas Categorias</option>
-                            <option value="Escavadeiras">Escavadeiras</option>
-                            <option value="Betoneiras">Betoneiras</option>
-                            <option value="Guindastes">Guindastes</option>
-                            <option value="Andaimes">Andaimes</option>
+                            {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
                         </select>
                     </div>
                 </div>

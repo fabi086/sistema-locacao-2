@@ -7,11 +7,12 @@ interface AddEquipmentModalProps {
     onClose: () => void;
     onSave: (equipmentData: Omit<Equipment, 'id'> | Equipment) => void;
     equipmentToEdit?: Equipment | null;
+    categories: EquipmentCategory[];
 }
 
-const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, equipmentToEdit }) => {
+const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, equipmentToEdit, categories }) => {
     const [name, setName] = useState('');
-    const [category, setCategory] = useState<EquipmentCategory | ''>('');
+    const [category, setCategory] = useState<string>('');
     const [serialNumber, setSerialNumber] = useState('');
     const [location, setLocation] = useState('');
     
@@ -73,8 +74,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
         exit: { opacity: 0, y: 50, scale: 0.95, transition: { duration: 0.2, ease: 'easeIn' } },
     };
     
-    const categories: EquipmentCategory[] = ['Escavadeiras', 'Betoneiras', 'Guindastes', 'Andaimes'];
-
     return (
         <motion.div
             className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
@@ -119,9 +118,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ onClose, onSave, 
                                 <label htmlFor="category" className="block text-sm font-semibold text-neutral-text-primary mb-2">Categoria</label>
                                     <div className="relative">
                                         <List size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
-                                        <select id="category" value={category} onChange={e => setCategory(e.target.value as EquipmentCategory)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white">
+                                        <select id="category" value={category} onChange={e => setCategory(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white">
                                             <option value="">Selecione...</option>
-                                            {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                            {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
                                         </select>
                                     </div>
                                 </div>

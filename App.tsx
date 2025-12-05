@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dashboard from './components/Dashboard';
@@ -13,7 +14,7 @@ import Agenda from './components/Agenda';
 import Manutencao from './components/Manutencao';
 import Usuarios from './components/Usuarios';
 import AddClientModal from './components/AddClientModal';
-import { Equipment, Customer, User, RentalOrder, RentalStatus, MaintenanceOrder, MaintenanceStatus, Contract, EquipmentStatus, PaymentStatus } from './types';
+import { Equipment, Customer, User, RentalOrder, RentalStatus, MaintenanceOrder, MaintenanceStatus, Contract, EquipmentStatus, PaymentStatus, EquipmentCategory } from './types';
 import { Truck, Wrench, FileText, Users, Building, Calendar, Settings, HardHat, LogOut, ChevronLeft, LayoutDashboard, Menu, ClipboardList, Loader2, RefreshCw } from 'lucide-react';
 import AddEquipmentModal from './components/AddEquipmentModal';
 import ConfirmationModal from './components/ConfirmationModal';
@@ -28,6 +29,7 @@ import Orcamentos from './components/Orcamentos';
 import Integracoes from './components/Integracoes';
 import { supabase } from './supabaseClient';
 import AddEditContractModal from './components/AddEditContractModal';
+import CategoryManagerModal from './components/CategoryManagerModal';
 
 const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard' },
@@ -145,6 +147,8 @@ const App: React.FC = () => {
     const [rentalOrders, setRentalOrders] = useState<RentalOrder[]>([]);
     const [maintenanceOrders, setMaintenanceOrders] = useState<MaintenanceOrder[]>([]);
     const [contracts, setContracts] = useState<Contract[]>([]);
+    const [equipmentCategories, setEquipmentCategories] = useState<EquipmentCategory[]>([]);
+
 
     // Modals & UI State
     const [isAddEditClientModalOpen, setAddEditClientModalOpen] = useState(false);
@@ -183,19 +187,22 @@ const App: React.FC = () => {
     const [contractToDelete, setContractToDelete] = useState<Contract | null>(null);
 
     const [isPriceTableModalOpen, setPriceTableModalOpen] = useState(false);
+    const [isCategoryManagerModalOpen, setCategoryManagerModalOpen] = useState(false);
+
 
     // Initial Data Fetch
     const fetchAllData = async () => {
         if (!supabase) return;
         setLoadingData(true);
         try {
-            const [eqRes, cliRes, userRes, orderRes, maintRes, contractsRes] = await Promise.all([
+            const [eqRes, cliRes, userRes, orderRes, maintRes, contractsRes, catRes] = await Promise.all([
                 supabase.from('equipments').select('*'),
                 supabase.from('clients').select('*'),
                 supabase.from('users').select('*'),
                 supabase.from('rental_orders').select('*'),
                 supabase.from('maintenance_orders').select('*'),
                 supabase.from('contracts').select('*'),
+                supabase.from('equipment_categories').select('*').order('name', { ascending: true }),
             ]);
 
             if (eqRes.data) setAllEquipment(eqRes.data);
@@ -204,6 +211,8 @@ const App: React.FC = () => {
             if (orderRes.data) setRentalOrders(orderRes.data);
             if (maintRes.data) setMaintenanceOrders(maintRes.data);
             if (contractsRes.data) setContracts(contractsRes.data);
+            if (catRes.data) setEquipmentCategories(catRes.data);
+
 
         } catch (error) {
             console.error("Erro ao carregar dados:", error);
@@ -224,6 +233,7 @@ const App: React.FC = () => {
         setRentalOrders([]);
         setMaintenanceOrders([]);
         setContracts([]);
+        setEquipmentCategories([]);
         // Forçar reload para limpar estados globais
         window.location.reload();
     };
@@ -366,7 +376,7 @@ const App: React.FC = () => {
             } else { // Create
                 const maxId = clients.reduce((max, c) => Math.max(max, parseInt(c.id.split('-')[1] || '0')), 0);
                 const newId = `CLI-${(maxId + 1).toString().padStart(3, '0')}`;
-                const newClient: Customer = {
+                const newClient: Omit<Customer, 'id' | 'tenant_id' | 'status'> & { id: string; status: 'Ativo'; tenant_id: string } = {
                     ...(clientData as Omit<Customer, 'id' | 'status'>),
                     id: newId,
                     status: 'Ativo',
@@ -874,6 +884,62 @@ const App: React.FC = () => {
             }
         }
     };
+    
+    // Category Handlers
+    const handleSaveCategory = async (categoryData: Omit<EquipmentCategory, 'id' | 'tenant_id'> | EquipmentCategory) => {
+        if (!supabase || !tenantId) return;
+        let savedData: EquipmentCategory | null = null;
+        let error;
+
+        if ('id' in categoryData) { // Update
+            const { data, error: updateError } = await supabase
+                .from('equipment_categories')
+                .update({ name: categoryData.name })
+                .eq('id', categoryData.id)
+                .select()
+                .single();
+            savedData = data;
+            error = updateError;
+        } else { // Create
+            const { data, error: insertError } = await supabase
+                .from('equipment_categories')
+                .insert({ name: categoryData.name, tenant_id: tenantId })
+                .select()
+                .single();
+            savedData = data;
+            error = insertError;
+        }
+
+        if (savedData) {
+            setEquipmentCategories(prev => {
+                const exists = prev.find(c => c.id === savedData!.id);
+                return (exists ? prev.map(c => c.id === savedData!.id ? savedData! : c) : [...prev, savedData!])
+                       .sort((a, b) => a.name.localeCompare(b.name));
+            });
+        } else {
+            console.error("Erro ao salvar categoria:", error);
+            alert(`Falha ao salvar categoria: ${error?.message}`);
+        }
+    };
+
+    const handleDeleteCategory = async (category: EquipmentCategory) => {
+        if (!supabase || !tenantId) return;
+
+        const isCategoryInUse = allEquipment.some(eq => eq.category === category.name);
+        if (isCategoryInUse) {
+            alert(`A categoria "${category.name}" está em uso por um ou mais equipamentos e não pode ser excluída.`);
+            return;
+        }
+
+        const { error } = await supabase.from('equipment_categories').delete().eq('id', category.id);
+
+        if (!error) {
+            setEquipmentCategories(prev => prev.filter(c => c.id !== category.id));
+        } else {
+            console.error("Erro ao deletar categoria:", error);
+            alert(`Falha ao deletar categoria: ${error.message}`);
+        }
+    };
 
 
     // Print Handler
@@ -937,6 +1003,7 @@ const App: React.FC = () => {
             case 'Equipamentos':
                 return <Equipamentos 
                             equipment={allEquipment}
+                            categories={equipmentCategories}
                             onOpenQuoteModal={handleOpenOrderModal}
                             onAdd={handleOpenAddEquipmentModal}
                             onEdit={handleOpenEditEquipmentModal}
@@ -995,7 +1062,7 @@ const App: React.FC = () => {
                             onDelete={handleOpenDeleteUserModal}
                         />;
             case 'Configurações':
-                return <Configuracoes onOpenPriceTableModal={handleOpenPriceTableModal} setActivePage={setActivePage} />;
+                return <Configuracoes onOpenPriceTableModal={handleOpenPriceTableModal} onOpenCategoryManagerModal={() => setCategoryManagerModalOpen(true)} setActivePage={setActivePage} />;
             case 'Integrações':
                 return <Integracoes />;
             default:
@@ -1055,7 +1122,7 @@ const App: React.FC = () => {
                     )}
                 </AnimatePresence>
                 <AnimatePresence>
-                    {isAddEditEquipmentModalOpen && <AddEquipmentModal onClose={() => setAddEditEquipmentModalOpen(false)} onSave={handleSaveEquipment} equipmentToEdit={equipmentToEdit} />}
+                    {isAddEditEquipmentModalOpen && <AddEquipmentModal onClose={() => setAddEditEquipmentModalOpen(false)} onSave={handleSaveEquipment} equipmentToEdit={equipmentToEdit} categories={equipmentCategories} />}
                 </AnimatePresence>
                 <AnimatePresence>
                     {isDeleteEquipmentModalOpen && equipmentToDelete && (
@@ -1155,6 +1222,18 @@ const App: React.FC = () => {
                 </AnimatePresence>
                  <AnimatePresence>
                     {orderToPrint && <QuotePrintModal quote={orderToPrint} onClose={handleClosePrintModal} />}
+                </AnimatePresence>
+                <AnimatePresence>
+                    {isCategoryManagerModalOpen && (
+                        <CategoryManagerModal
+                            isOpen={isCategoryManagerModalOpen}
+                            onClose={() => setCategoryManagerModalOpen(false)}
+                            categories={equipmentCategories}
+                            onSave={handleSaveCategory}
+                            onDelete={handleDeleteCategory}
+                            allEquipment={allEquipment}
+                        />
+                    )}
                 </AnimatePresence>
             </main>
         </div>

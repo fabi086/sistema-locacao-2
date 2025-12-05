@@ -1,13 +1,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Users, FileText, BadgeDollarSign, Plug } from 'lucide-react';
+import { Users, FileText, BadgeDollarSign, Plug, List } from 'lucide-react';
 
 interface SettingsCardData {
     icon: React.ElementType;
     title: string;
     description: string;
     buttonText: string;
-    action: 'openPriceTable' | 'navigateTo';
+    action: 'openPriceTable' | 'navigateTo' | 'openCategoryManager';
     page?: string;
 }
 
@@ -21,12 +21,11 @@ const settingsCards: SettingsCardData[] = [
         page: 'Usuários'
     },
     {
-        icon: FileText,
-        title: "Modelos",
-        description: "Personalize modelos de contratos, orçamentos e faturas.",
+        icon: List,
+        title: "Categorias de Equipamentos",
+        description: "Adicione, edite e remova as categorias dos seus equipamentos.",
         buttonText: "Gerenciar",
-        action: 'navigateTo',
-        page: 'Contratos'
+        action: 'openCategoryManager'
     },
     {
         icon: BadgeDollarSign,
@@ -42,7 +41,15 @@ const settingsCards: SettingsCardData[] = [
         buttonText: "Gerenciar",
         action: 'navigateTo',
         page: 'Integrações'
-    }
+    },
+    {
+        icon: FileText,
+        title: "Modelos",
+        description: "Personalize modelos de contratos, orçamentos e faturas.",
+        buttonText: "Gerenciar",
+        action: 'navigateTo',
+        page: 'Contratos'
+    },
 ];
 
 const cardVariants: any = {
@@ -52,14 +59,17 @@ const cardVariants: any = {
 
 interface ConfiguracoesProps {
     onOpenPriceTableModal: () => void;
+    onOpenCategoryManagerModal: () => void;
     setActivePage: (page: string) => void;
 }
 
-const Configuracoes: React.FC<ConfiguracoesProps> = ({ onOpenPriceTableModal, setActivePage }) => {
+const Configuracoes: React.FC<ConfiguracoesProps> = ({ onOpenPriceTableModal, onOpenCategoryManagerModal, setActivePage }) => {
     
-    const handleCardClick = (action: 'openPriceTable' | 'navigateTo', page?: string) => {
+    const handleCardClick = (action: 'openPriceTable' | 'navigateTo' | 'openCategoryManager', page?: string) => {
         if (action === 'openPriceTable') {
             onOpenPriceTableModal();
+        } else if (action === 'openCategoryManager') {
+            onOpenCategoryManagerModal();
         } else if (action === 'navigateTo' && page) {
             setActivePage(page);
         }
