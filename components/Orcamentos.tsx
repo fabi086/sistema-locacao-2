@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Plus, Search, Printer, Edit2, Trash2, Share2, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -41,53 +42,111 @@ const Orcamentos: React.FC<OrcamentosProps> = ({ quotes, clients, onOpenAddModal
         element.style.top = '0';
         element.style.width = '800px'; 
         element.style.backgroundColor = 'white';
-        element.style.padding = '40px';
+        // Adiciona classes do Tailwind para garantir o estilo
+        element.className = 'p-8 bg-white font-sans text-gray-800';
         
         const subtotal = quote.value;
         const total = subtotal + (quote.freightCost || 0) + (quote.accessoriesCost || 0) - (quote.discount || 0);
+        const rentalPeriodString = `${new Date(quote.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} a ${new Date(quote.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}`;
         
+        // Ícone SVG inline para garantir renderização
+        const hardHatIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#F39C12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-hard-hat text-secondary"><path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v2z"/><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"/><path d="M4 15v-3a6 6 0 0 1 6-6h0"/><path d="M14 6h0a6 6 0 0 1 6 6v3"/></svg>`;
+
         element.innerHTML = `
-            <div style="font-family: Arial, sans-serif; color: #333;">
-                <div style="border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 20px;">
-                    <h1 style="color: #0A4C64; margin: 0;">ObraFácil</h1>
-                    <p style="margin: 5px 0; font-size: 14px; color: #666;">Orçamento #${quote.id}</p>
-                </div>
-                <div style="margin-bottom: 30px;">
-                    <h3 style="margin-bottom: 10px;">Cliente</h3>
-                    <p style="margin: 0; font-weight: bold;">${quote.client}</p>
-                    <p style="margin: 5px 0; font-size: 14px;">Data: ${new Date(quote.createdDate).toLocaleDateString('pt-BR')}</p>
-                    <p style="margin: 5px 0; font-size: 14px;">Período: ${new Date(quote.startDate).toLocaleDateString('pt-BR')} a ${new Date(quote.endDate).toLocaleDateString('pt-BR')}</p>
-                </div>
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
-                    <thead>
-                        <tr style="background-color: #f8f9fa;">
-                            <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Item</th>
-                            <th style="padding: 10px; text-align: right; border-bottom: 1px solid #ddd;">Valor</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${quote.equipmentItems.map(item => `
-                            <tr>
-                                <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.equipmentName}</td>
-                                <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee;">R$ ${(item.value || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-                <div style="text-align: right;">
-                    <p style="margin: 5px 0;">Subtotal: R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
-                    ${quote.freightCost ? `<p style="margin: 5px 0;">Frete: R$ ${quote.freightCost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>` : ''}
-                    ${quote.accessoriesCost ? `<p style="margin: 5px 0;">Acessórios: R$ ${quote.accessoriesCost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>` : ''}
-                    ${quote.discount ? `<p style="margin: 5px 0; color: red;">Desconto: - R$ ${quote.discount.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>` : ''}
-                    <h2 style="color: #0A4C64; margin-top: 10px;">Total: R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h2>
-                </div>
+            <div class="max-w-3xl mx-auto">
+                <header class="flex flex-row justify-between items-start pb-6 border-b-2 border-gray-200 gap-4">
+                    <div>
+                        <div class="flex items-center gap-3 mb-2">
+                                ${hardHatIcon}
+                                <h1 class="text-3xl font-bold text-[#0A4C64]">ObraFácil</h1>
+                        </div>
+                        <p class="text-sm text-gray-500">Rua da Construção, 123, Bairro Industrial</p>
+                        <p class="text-sm text-gray-500">CEP 12345-678, São Paulo, SP</p>
+                        <p class="text-sm text-gray-500">contato@obrafacil.com | (11) 98765-4321</p>
+                    </div>
+                    <div class="text-right">
+                        <h2 class="text-4xl font-bold text-gray-500 uppercase">Orçamento</h2>
+                        <p class="text-lg font-semibold text-[#0A4C64]">${quote.id}</p>
+                    </div>
+                </header>
+                <section class="grid grid-cols-2 gap-8 my-6">
+                    <div>
+                        <h3 class="text-sm font-semibold uppercase text-gray-500 mb-2">PARA:</h3>
+                        <p class="font-bold text-lg text-[#2D3E50]">${quote.client}</p>
+                        <p class="text-gray-600">CNPJ: 12.345.678/0001-99</p>
+                        <p class="text-gray-600">Av. Principal, 456, Centro</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-gray-600"><span class="font-semibold">Data de Emissão:</span> ${new Date(quote.createdDate + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                        <p class="text-gray-600"><span class="font-semibold">Válido até:</span> ${new Date(quote.validUntil + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                        <p class="text-gray-600"><span class="font-semibold">Período de Locação:</span> ${rentalPeriodString}</p>
+                    </div>
+                </section>
+                <section class="mb-8">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="p-3 text-sm font-semibold uppercase text-gray-600 w-16 text-center">Item</th>
+                                    <th class="p-3 text-sm font-semibold uppercase text-gray-600">Descrição</th>
+                                    <th class="p-3 text-sm font-semibold uppercase text-gray-600 text-right">Período</th>
+                                    <th class="p-3 text-sm font-semibold uppercase text-gray-600 text-right">Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${quote.equipmentItems.map((item, index) => `
+                                    <tr class="border-b border-gray-200">
+                                        <td class="p-3 w-16 text-center font-medium">${String(index + 1).padStart(3, '0')}</td>
+                                        <td class="p-3 font-medium text-[#2D3E50]">${item.equipmentName}</td>
+                                        <td class="p-3 text-right text-sm text-gray-700 whitespace-nowrap">${rentalPeriodString}</td>
+                                        <td class="p-3 text-right font-semibold text-[#2D3E50] whitespace-nowrap">R$ ${(item.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+                <section class="flex justify-end mb-8">
+                    <div class="w-full max-w-sm space-y-2 text-gray-600">
+                        <div class="flex justify-between">
+                            <span>Subtotal (Equipamentos):</span>
+                            <span class="font-medium">R$ ${subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        ${quote.freightCost ? `
+                        <div class="flex justify-between">
+                            <span>Frete:</span>
+                            <span class="font-medium">R$ ${quote.freightCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        ` : ''}
+                        ${quote.accessoriesCost ? `
+                        <div class="flex justify-between">
+                            <span>Acessórios:</span>
+                            <span class="font-medium">R$ ${quote.accessoriesCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        ` : ''}
+                        ${quote.discount ? `
+                        <div class="flex justify-between text-red-600">
+                            <span>Desconto:</span>
+                            <span class="font-medium">- R$ ${quote.discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        ` : ''}
+                        <div class="flex justify-between pt-2 border-t border-gray-300">
+                            <span class="font-bold text-lg text-[#2D3E50]">Total:</span>
+                            <span class="font-bold text-lg text-[#0A4C64]">R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                    </div>
+                </section>
+                <footer class="text-center text-xs text-gray-500 pt-6 border-t border-gray-200">
+                    <p class="font-semibold">Termos e Condições</p>
+                    <p>O pagamento deve ser efetuado em até 30 dias após a emissão da fatura. Agradecemos a sua preferência!</p>
+                </footer>
             </div>
         `;
         
         document.body.appendChild(element);
         
         try {
-            const canvas = await html2canvas(element, { scale: 2 });
+            const canvas = await html2canvas(element, { scale: 2, useCORS: true });
             const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
