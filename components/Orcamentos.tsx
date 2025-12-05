@@ -1,7 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Search, Printer, Edit2, Trash2, Share2 } from 'lucide-react';
+import { Plus, Search, Printer, Edit2, Trash2, Share2, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { RentalOrder, RentalStatus, Customer } from '../types';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { supabase } from '../supabaseClient';
 
 const statusColors: Record<RentalStatus, string> = {
     'Proposta': 'bg-yellow-500/10 text-yellow-600',
@@ -29,32 +32,123 @@ interface OrcamentosProps {
 const Orcamentos: React.FC<OrcamentosProps> = ({ quotes, clients, onOpenAddModal, onEdit, onDelete, onUpdateStatus, onOpenPrintModal }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<RentalStatus | 'Todos'>('Todos');
+    const [sharingQuoteId, setSharingQuoteId] = useState<string | null>(null);
     
-    const handleWhatsAppShare = (quote: RentalOrder) => {
-        const clientInfo = clients.find(c => c.name === quote.client);
-        if (!clientInfo || !clientInfo.phone) {
-            alert('Número de telefone do cliente não encontrado para compartilhar via WhatsApp.');
-            return;
+    const generatePdfBlob = async (quote: RentalOrder) => {
+        // Criar um elemento temporário para renderizar o orçamento
+        const element = document.createElement('div');
+        element.style.position = 'absolute';
+        element.style.left = '-9999px';
+        element.style.top = '0';
+        element.style.width = '800px'; // Tamanho A4 aproximado em pixels
+        element.style.backgroundColor = 'white';
+        element.style.padding = '40px';
+        
+        // Construir o HTML do orçamento (versão simplificada para PDF)
+        const subtotal = quote.value;
+        const total = subtotal + (quote.freightCost || 0) + (quote.accessoriesCost || 0) - (quote.discount || 0);
+        
+        element.innerHTML = `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <div style="border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 20px;">
+                    <h1 style="color: #0A4C64; margin: 0;">ObraFácil</h1>
+                    <p style="margin: 5px 0; font-size: 14px; color: #666;">Orçamento #${quote.id}</p>
+                </div>
+                <div style="margin-bottom: 30px;">
+                    <h3 style="margin-bottom: 10px;">Cliente</h3>
+                    <p style="margin: 0; font-weight: bold;">${quote.client}</p>
+                    <p style="margin: 5px 0; font-size: 14px;">Data: ${new Date(quote.createdDate).toLocaleDateString('pt-BR')}</p>
+                    <p style="margin: 5px 0; font-size: 14px;">Período: ${new Date(quote.startDate).toLocaleDateString('pt-BR')} a ${new Date(quote.endDate).toLocaleDateString('pt-BR')}</p>
+                </div>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                    <thead>
+                        <tr style="background-color: #f8f9fa;">
+                            <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Item</th>
+                            <th style="padding: 10px; text-align: right; border-bottom: 1px solid #ddd;">Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${quote.equipmentItems.map(item => `
+                            <tr>
+                                <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.equipmentName}</td>
+                                <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee;">R$ ${(item.value || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                <div style="text-align: right;">
+                    <p style="margin: 5px 0;">Subtotal: R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+                    ${quote.freightCost ? `<p style="margin: 5px 0;">Frete: R$ ${quote.freightCost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>` : ''}
+                    ${quote.accessoriesCost ? `<p style="margin: 5px 0;">Acessórios: R$ ${quote.accessoriesCost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>` : ''}
+                    ${quote.discount ? `<p style="margin: 5px 0; color: red;">Desconto: - R$ ${quote.discount.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>` : ''}
+                    <h2 style="color: #0A4C64; margin-top: 10px;">Total: R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h2>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(element);
+        
+        try {
+            const canvas = await html2canvas(element, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            return pdf.output('blob');
+        } finally {
+            document.body.removeChild(element);
         }
-        
-        const phoneNumber = clientInfo.phone.replace(/\D/g, '');
-        const fullPhoneNumber = phoneNumber.length > 10 ? `55${phoneNumber}` : `55${phoneNumber}`;
-        
-        const equipmentList = quote.equipmentItems.map(item => `- ${item.equipmentName}`).join('\n');
-        const total = quote.value + (quote.freightCost || 0) + (quote.accessoriesCost || 0) - (quote.discount || 0);
+    };
 
-        const message = `Olá ${quote.client}, segue seu orçamento ${quote.id}:\n\n` +
-            `Equipamentos:\n${equipmentList}\n\n` +
-            `Período: ${new Date(quote.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} a ${new Date(quote.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}\n\n` +
-            `Subtotal: R$ ${quote.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` +
-            (quote.freightCost ? `Frete: R$ ${quote.freightCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` : '') +
-            (quote.accessoriesCost ? `Acessórios: R$ ${quote.accessoriesCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` : '') +
-            (quote.discount ? `Desconto: - R$ ${quote.discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` : '') +
-            `*Valor Total: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n` +
-            `Agradecemos a preferência!\nObraFácil`;
-        
-        const url = `https://wa.me/${fullPhoneNumber}?text=${encodeURIComponent(message)}`;
-        window.open(url, '_blank');
+    const handleWhatsAppShare = async (quote: RentalOrder) => {
+        setSharingQuoteId(quote.id);
+        try {
+            const clientInfo = clients.find(c => c.name === quote.client);
+            if (!clientInfo || !clientInfo.phone) {
+                alert('Número de telefone do cliente não encontrado para compartilhar via WhatsApp.');
+                return;
+            }
+            
+            // 1. Gerar PDF
+            const pdfBlob = await generatePdfBlob(quote);
+            
+            // 2. Upload para Supabase Storage
+            const fileName = `orcamento_${quote.id}_${Date.now()}.pdf`;
+            const { error: uploadError } = await supabase.storage
+                .from('quotes')
+                .upload(fileName, pdfBlob, { contentType: 'application/pdf', upsert: true });
+            
+            if (uploadError) throw uploadError;
+            
+            // 3. Obter Link Público
+            const { data: { publicUrl } } = supabase.storage
+                .from('quotes')
+                .getPublicUrl(fileName);
+
+            // 4. Montar mensagem
+            const phoneNumber = clientInfo.phone.replace(/\D/g, '');
+            const fullPhoneNumber = phoneNumber.length > 10 ? `55${phoneNumber}` : `55${phoneNumber}`;
+            
+            const equipmentList = quote.equipmentItems.map(item => `- ${item.equipmentName}`).join('\n');
+            const total = quote.value + (quote.freightCost || 0) + (quote.accessoriesCost || 0) - (quote.discount || 0);
+
+            const message = `Olá ${quote.client}, segue seu orçamento ${quote.id}:\n\n` +
+                `*Baixe o PDF completo aqui:* ${publicUrl}\n\n` +
+                `Equipamentos:\n${equipmentList}\n\n` +
+                `Período: ${new Date(quote.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} a ${new Date(quote.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}\n\n` +
+                `*Valor Total: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n` +
+                `Agradecemos a preferência!\nObraFácil`;
+            
+            const url = `https://wa.me/${fullPhoneNumber}?text=${encodeURIComponent(message)}`;
+            window.open(url, '_blank');
+        } catch (error) {
+            console.error("Erro ao compartilhar:", error);
+            alert("Houve um erro ao gerar ou compartilhar o PDF. Verifique se o bucket 'quotes' existe e é público no Supabase.");
+        } finally {
+            setSharingQuoteId(null);
+        }
     };
 
     const filteredQuotes = useMemo(() => {
@@ -163,8 +257,8 @@ const Orcamentos: React.FC<OrcamentosProps> = ({ quotes, clients, onOpenAddModal
                                 </td>
                                 <td className="p-4 text-center">
                                     <div className="flex items-center justify-center gap-1">
-                                        <button onClick={() => handleWhatsAppShare(quote)} className="p-2 text-neutral-text-secondary hover:text-green-500 hover:bg-green-500/10 rounded-full transition-colors" aria-label={`Compartilhar orçamento ${quote.id}`}>
-                                            <Share2 size={16} />
+                                        <button onClick={() => handleWhatsAppShare(quote)} disabled={sharingQuoteId === quote.id} className="p-2 text-neutral-text-secondary hover:text-green-500 hover:bg-green-500/10 rounded-full transition-colors disabled:opacity-50" aria-label={`Compartilhar orçamento ${quote.id}`}>
+                                            {sharingQuoteId === quote.id ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
                                         </button>
                                         <button onClick={() => onEdit(quote)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors" aria-label={`Editar orçamento ${quote.id}`}>
                                             <Edit2 size={16} />
@@ -219,8 +313,8 @@ const Orcamentos: React.FC<OrcamentosProps> = ({ quotes, clients, onOpenAddModal
                             <span><span className="font-semibold">Valor:</span> R$ {quote.value.toLocaleString('pt-BR')}</span>
                         </div>
                         <div className="flex items-center justify-end gap-1">
-                            <button onClick={() => handleWhatsAppShare(quote)} className="p-2 text-neutral-text-secondary hover:text-green-500 hover:bg-green-500/10 rounded-full transition-colors" aria-label={`Compartilhar orçamento ${quote.id}`}>
-                                <Share2 size={18} />
+                            <button onClick={() => handleWhatsAppShare(quote)} disabled={sharingQuoteId === quote.id} className="p-2 text-neutral-text-secondary hover:text-green-500 hover:bg-green-500/10 rounded-full transition-colors disabled:opacity-50" aria-label={`Compartilhar orçamento ${quote.id}`}>
+                                {sharingQuoteId === quote.id ? <Loader2 size={18} className="animate-spin" /> : <Share2 size={18} />}
                             </button>
                             <button onClick={() => onEdit(quote)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors" aria-label={`Editar orçamento ${quote.id}`}>
                                 <Edit2 size={18} />

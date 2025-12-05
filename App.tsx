@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dashboard from './components/Dashboard';
@@ -259,9 +256,8 @@ const App: React.FC = () => {
                         setTimeout(() => loadUserTenant(retries - 1), delay);
                     } else {
                          console.error("Erro crítico: Perfil não encontrado após várias tentativas.");
-                         if (supabase) await supabase.auth.signOut();
-                         setIsAuthenticated(false);
-                         alert("Erro: Perfil de usuário não encontrado. Se você resetou o banco de dados, sua conta de login ainda existe mas seus dados foram apagados. Crie uma nova conta com um email diferente.");
+                         // Removido alerta intrusivo para permitir auto-correção via logout
+                         handleLogout();
                     }
                 }
             } else {
@@ -895,7 +891,7 @@ const App: React.FC = () => {
             const { data, error: updateError } = await supabase
                 .from('equipment_categories')
                 .update({ name: categoryData.name })
-                .eq('id', categoryData.id)
+                .match({ id: categoryData.id, tenant_id: tenantId })
                 .select()
                 .single();
             savedData = data;
@@ -931,7 +927,7 @@ const App: React.FC = () => {
             return;
         }
 
-        const { error } = await supabase.from('equipment_categories').delete().eq('id', category.id);
+        const { error } = await supabase.from('equipment_categories').delete().match({ id: category.id, tenant_id: tenantId });
 
         if (!error) {
             setEquipmentCategories(prev => prev.filter(c => c.id !== category.id));

@@ -1,8 +1,10 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { X, Building, HardHat, Calendar, CheckCircle, Printer, Share2, Plus, Trash2, Package, Percent, Truck, CreditCard, PieChart, MapPin } from 'lucide-react';
+import { X, Building, HardHat, Calendar, CheckCircle, Printer, Share2, Plus, Trash2, Package, Percent, Truck, CreditCard, PieChart, MapPin, Loader2 } from 'lucide-react';
 import { Equipment, Customer, RentalOrder, EquipmentOrderItem, PaymentStatus } from '../types';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { supabase } from '../supabaseClient';
 
 interface QuoteModalProps {
     onClose: () => void;
@@ -29,6 +31,7 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
     const [paymentMethod, setPaymentMethod] = useState('');
     const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('Pendente');
     const [savedOrder, setSavedOrder] = useState<RentalOrder | null>(null);
+    const [isSharing, setIsSharing] = useState(false);
     
     const isEditing = !!orderToEdit;
 
@@ -229,32 +232,123 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
         }
     };
 
-    const handleWhatsAppShare = () => {
-        if (!savedOrder) return;
-        const clientInfo = clients.find(c => c.name === savedOrder.client);
-        if (!clientInfo || !clientInfo.phone) {
-            alert('Número de telefone do cliente não encontrado para compartilhar via WhatsApp.');
-            return;
+    const generatePdfBlob = async (quote: RentalOrder) => {
+        const element = document.createElement('div');
+        element.style.position = 'absolute';
+        element.style.left = '-9999px';
+        element.style.top = '0';
+        element.style.width = '800px'; 
+        element.style.backgroundColor = 'white';
+        element.style.padding = '40px';
+        
+        const subtotal = quote.value;
+        const total = subtotal + (quote.freightCost || 0) + (quote.accessoriesCost || 0) - (quote.discount || 0);
+        
+        element.innerHTML = `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <div style="border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 20px;">
+                    <h1 style="color: #0A4C64; margin: 0;">ObraFácil</h1>
+                    <p style="margin: 5px 0; font-size: 14px; color: #666;">Orçamento #${quote.id}</p>
+                </div>
+                <div style="margin-bottom: 30px;">
+                    <h3 style="margin-bottom: 10px;">Cliente</h3>
+                    <p style="margin: 0; font-weight: bold;">${quote.client}</p>
+                    <p style="margin: 5px 0; font-size: 14px;">Data: ${new Date(quote.createdDate).toLocaleDateString('pt-BR')}</p>
+                    <p style="margin: 5px 0; font-size: 14px;">Período: ${new Date(quote.startDate).toLocaleDateString('pt-BR')} a ${new Date(quote.endDate).toLocaleDateString('pt-BR')}</p>
+                </div>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                    <thead>
+                        <tr style="background-color: #f8f9fa;">
+                            <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Item</th>
+                            <th style="padding: 10px; text-align: right; border-bottom: 1px solid #ddd;">Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${quote.equipmentItems.map(item => `
+                            <tr>
+                                <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.equipmentName}</td>
+                                <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee;">R$ ${(item.value || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                <div style="text-align: right;">
+                    <p style="margin: 5px 0;">Subtotal: R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+                    ${quote.freightCost ? `<p style="margin: 5px 0;">Frete: R$ ${quote.freightCost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>` : ''}
+                    ${quote.accessoriesCost ? `<p style="margin: 5px 0;">Acessórios: R$ ${quote.accessoriesCost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>` : ''}
+                    ${quote.discount ? `<p style="margin: 5px 0; color: red;">Desconto: - R$ ${quote.discount.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>` : ''}
+                    <h2 style="color: #0A4C64; margin-top: 10px;">Total: R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h2>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(element);
+        
+        try {
+            const canvas = await html2canvas(element, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            return pdf.output('blob');
+        } finally {
+            document.body.removeChild(element);
         }
-        
-        const phoneNumber = clientInfo.phone.replace(/\D/g, '');
-        const fullPhoneNumber = phoneNumber.length > 10 ? `55${phoneNumber}` : `55${phoneNumber}`;
-        
-        const equipmentList = savedOrder.equipmentItems.map(item => `- ${item.equipmentName}`).join('\n');
-        const total = savedOrder.value + (savedOrder.freightCost || 0) + (savedOrder.accessoriesCost || 0) - (savedOrder.discount || 0);
+    };
 
-        const message = `Olá ${savedOrder.client}, segue seu orçamento ${savedOrder.id}:\n\n` +
-            `Equipamentos:\n${equipmentList}\n\n` +
-            `Período: ${new Date(savedOrder.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} a ${new Date(savedOrder.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}\n\n` +
-            `Subtotal: R$ ${savedOrder.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` +
-            (savedOrder.freightCost ? `Frete: R$ ${savedOrder.freightCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` : '') +
-            (savedOrder.accessoriesCost ? `Acessórios: R$ ${savedOrder.accessoriesCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` : '') +
-            (savedOrder.discount ? `Desconto: - R$ ${savedOrder.discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` : '') +
-            `*Valor Total: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n` +
-            `Agradecemos a preferência!\nObraFácil`;
-        
-        const url = `https://wa.me/${fullPhoneNumber}?text=${encodeURIComponent(message)}`;
-        window.open(url, '_blank');
+    const handleWhatsAppShare = async () => {
+        if (!savedOrder) return;
+        setIsSharing(true);
+        try {
+            const clientInfo = clients.find(c => c.name === savedOrder.client);
+            if (!clientInfo || !clientInfo.phone) {
+                alert('Número de telefone do cliente não encontrado para compartilhar via WhatsApp.');
+                return;
+            }
+            
+            // 1. Gerar PDF
+            const pdfBlob = await generatePdfBlob(savedOrder);
+            
+            // 2. Upload para Supabase Storage
+            const fileName = `orcamento_${savedOrder.id}_${Date.now()}.pdf`;
+            const { error: uploadError } = await supabase.storage
+                .from('quotes')
+                .upload(fileName, pdfBlob, { contentType: 'application/pdf', upsert: true });
+            
+            if (uploadError) throw uploadError;
+            
+            // 3. Obter Link Público
+            const { data: { publicUrl } } = supabase.storage
+                .from('quotes')
+                .getPublicUrl(fileName);
+
+            const phoneNumber = clientInfo.phone.replace(/\D/g, '');
+            const fullPhoneNumber = phoneNumber.length > 10 ? `55${phoneNumber}` : `55${phoneNumber}`;
+            
+            const equipmentList = savedOrder.equipmentItems.map(item => `- ${item.equipmentName}`).join('\n');
+            const total = savedOrder.value + (savedOrder.freightCost || 0) + (savedOrder.accessoriesCost || 0) - (savedOrder.discount || 0);
+
+            const message = `Olá ${savedOrder.client}, segue seu orçamento ${savedOrder.id}:\n\n` +
+                `*Baixe o PDF completo aqui:* ${publicUrl}\n\n` +
+                `Equipamentos:\n${equipmentList}\n\n` +
+                `Período: ${new Date(savedOrder.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} a ${new Date(savedOrder.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}\n\n` +
+                `Subtotal: R$ ${savedOrder.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` +
+                (savedOrder.freightCost ? `Frete: R$ ${savedOrder.freightCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` : '') +
+                (savedOrder.accessoriesCost ? `Acessórios: R$ ${savedOrder.accessoriesCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` : '') +
+                (savedOrder.discount ? `Desconto: - R$ ${savedOrder.discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` : '') +
+                `*Valor Total: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n` +
+                `Agradecemos a preferência!\nObraFácil`;
+            
+            const url = `https://wa.me/${fullPhoneNumber}?text=${encodeURIComponent(message)}`;
+            window.open(url, '_blank');
+        } catch (error) {
+            console.error("Erro ao compartilhar:", error);
+            alert("Erro ao gerar/enviar PDF. Verifique se o bucket 'quotes' existe no Supabase Storage e é público.");
+        } finally {
+            setIsSharing(false);
+        }
     };
 
     const handlePrint = () => {
@@ -433,7 +527,10 @@ const QuoteModal: React.FC<QuoteModalProps> = ({ onClose, equipment: preselected
                             <h3 className="text-2xl font-bold text-neutral-text-primary">Orçamento Salvo!</h3>
                             <p className="text-neutral-text-secondary mt-2 mb-6">O orçamento <span className="font-semibold text-neutral-text-primary">{savedOrder.id}</span> foi criado com sucesso. O que você gostaria de fazer a seguir?</p>
                             <div className="w-full space-y-3 max-w-sm">
-                                <button onClick={handleWhatsAppShare} className="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-green-500 hover:bg-green-600 rounded-lg shadow-sm transition-colors"><Share2 size={16} />Compartilhar via WhatsApp</button>
+                                <button onClick={handleWhatsAppShare} disabled={isSharing} className="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-green-500 hover:bg-green-600 rounded-lg shadow-sm transition-colors disabled:opacity-70">
+                                    {isSharing ? <Loader2 size={16} className="animate-spin"/> : <Share2 size={16} />}
+                                    Compartilhar via WhatsApp
+                                </button>
                                 <button onClick={handlePrint} className="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-neutral-text-primary bg-neutral-card rounded-lg hover:bg-gray-200 border border-gray-300 transition-colors"><Printer size={16} />Imprimir / Gerar PDF</button>
                             </div>
                         </div>

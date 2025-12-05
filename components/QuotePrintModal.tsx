@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
 import { X, Printer, HardHat } from 'lucide-react';
@@ -42,7 +43,7 @@ const QuotePrintModal: React.FC<{ quote: RentalOrder; onClose: () => void }> = (
                     onClick: (e: any) => e.stopPropagation()
                 } as any)}
             >
-                <header className="p-4 bg-neutral-card-alt flex justify-between items-center no-print">
+                <header className="p-4 bg-neutral-card-alt flex justify-between items-center print:hidden">
                     <h2 className="text-lg font-bold text-neutral-text-primary">Pré-visualização: {quote.id}</h2>
                     <div className="flex items-center gap-2">
                         <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-lg shadow-sm transition-colors">
@@ -74,9 +75,6 @@ const QuotePrintModal: React.FC<{ quote: RentalOrder; onClose: () => void }> = (
                           @page { 
                             size: A4; 
                             margin: 1.5cm; 
-                          }
-                          .no-print {
-                            display: none !important;
                           }
                         }
                       `}
@@ -147,7 +145,7 @@ const QuotePrintModal: React.FC<{ quote: RentalOrder; onClose: () => void }> = (
                                 </table>
                             </div>
                              {/* Cards para Mobile (não será impresso) */}
-                            <div className="sm:hidden no-print space-y-4">
+                            <div className="block sm:hidden print:hidden space-y-4">
                                 <h3 className="text-sm font-semibold uppercase text-gray-600">Itens do Orçamento</h3>
                                 {quote.equipmentItems.length > 0 ? (
                                     quote.equipmentItems.map((item, index) => {
