@@ -1,13 +1,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Users, FileText, BadgeDollarSign, Plug, List } from 'lucide-react';
+import { Users, FileText, BadgeDollarSign, Plug, List, KanbanSquare } from 'lucide-react';
 
 interface SettingsCardData {
     icon: React.ElementType;
     title: string;
     description: string;
     buttonText: string;
-    action: 'openPriceTable' | 'navigateTo' | 'openCategoryManager';
+    action: 'openPriceTable' | 'navigateTo' | 'openCategoryManager' | 'openPipelineManager';
     page?: string;
 }
 
@@ -33,6 +33,13 @@ const settingsCards: SettingsCardData[] = [
         description: "Defina e ajuste as taxas de locação por período e cliente.",
         buttonText: "Gerenciar",
         action: 'openPriceTable'
+    },
+     {
+        icon: KanbanSquare,
+        title: "Etapas do Funil",
+        description: "Personalize a ordem das colunas no seu funil de locação.",
+        buttonText: "Gerenciar",
+        action: 'openPipelineManager'
     },
     {
         icon: Plug,
@@ -60,16 +67,19 @@ const cardVariants: any = {
 interface ConfiguracoesProps {
     onOpenPriceTableModal: () => void;
     onOpenCategoryManagerModal: () => void;
+    onOpenPipelineManagerModal: () => void;
     setActivePage: (page: string) => void;
 }
 
-const Configuracoes: React.FC<ConfiguracoesProps> = ({ onOpenPriceTableModal, onOpenCategoryManagerModal, setActivePage }) => {
+const Configuracoes: React.FC<ConfiguracoesProps> = ({ onOpenPriceTableModal, onOpenCategoryManagerModal, onOpenPipelineManagerModal, setActivePage }) => {
     
-    const handleCardClick = (action: 'openPriceTable' | 'navigateTo' | 'openCategoryManager', page?: string) => {
+    const handleCardClick = (action: SettingsCardData['action'], page?: string) => {
         if (action === 'openPriceTable') {
             onOpenPriceTableModal();
         } else if (action === 'openCategoryManager') {
             onOpenCategoryManagerModal();
+        } else if (action === 'openPipelineManager') {
+            onOpenPipelineManagerModal();
         } else if (action === 'navigateTo' && page) {
             setActivePage(page);
         }

@@ -27,6 +27,7 @@ import Integracoes from './components/Integracoes';
 import { supabase } from './supabaseClient';
 import AddEditContractModal from './components/AddEditContractModal';
 import CategoryManagerModal from './components/CategoryManagerModal';
+import PipelineManagerModal from './components/PipelineManagerModal';
 
 // --- CONFIGURAÇÃO DE NOTIFICAÇÃO ---
 // IMPORTANTE: Gere suas chaves VAPID em https://www.stephane-quantin.com/en/tools/generators/vapid-keys
@@ -165,6 +166,7 @@ const App: React.FC = () => {
     const [maintenanceOrders, setMaintenanceOrders] = useState<MaintenanceOrder[]>([]);
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [equipmentCategories, setEquipmentCategories] = useState<EquipmentCategory[]>([]);
+    const [pipelineStages, setPipelineStages] = useState<RentalStatus[]>(['Aprovado', 'Reservado', 'Em Rota', 'Ativo', 'Concluído', 'Pendente de Pagamento']);
 
 
     // Modals & UI State
@@ -205,6 +207,7 @@ const App: React.FC = () => {
 
     const [isPriceTableModalOpen, setPriceTableModalOpen] = useState(false);
     const [isCategoryManagerModalOpen, setCategoryManagerModalOpen] = useState(false);
+    const [isPipelineManagerModalOpen, setPipelineManagerModalOpen] = useState(false);
 
 
     // Initial Data Fetch
@@ -990,6 +993,12 @@ const App: React.FC = () => {
             alert(`Falha ao deletar categoria: ${error.message}`);
         }
     };
+    
+    // Pipeline Handlers
+    const handleSavePipelineStages = (newStages: RentalStatus[]) => {
+        setPipelineStages(newStages);
+        setPipelineManagerModalOpen(false);
+    };
 
 
     // Print Handler
@@ -1080,6 +1089,7 @@ const App: React.FC = () => {
                             onUpdatePaymentStatus={handleUpdatePaymentStatus}
                             onOpenScheduleDeliveryModal={handleOpenScheduleDeliveryModal}
                             onOpenPrintModal={handleOpenPrintModal}
+                            stages={pipelineStages}
                         />;
             case 'Contratos':
                 return <Contratos 
@@ -1112,7 +1122,7 @@ const App: React.FC = () => {
                             onDelete={handleOpenDeleteUserModal}
                         />;
             case 'Configurações':
-                return <Configuracoes onOpenPriceTableModal={handleOpenPriceTableModal} onOpenCategoryManagerModal={() => setCategoryManagerModalOpen(true)} setActivePage={setActivePage} />;
+                return <Configuracoes onOpenPriceTableModal={handleOpenPriceTableModal} onOpenCategoryManagerModal={() => setCategoryManagerModalOpen(true)} onOpenPipelineManagerModal={() => setPipelineManagerModalOpen(true)} setActivePage={setActivePage} />;
             case 'Integrações':
                 return <Integracoes />;
             default:
@@ -1282,6 +1292,16 @@ const App: React.FC = () => {
                             onSave={handleSaveCategory}
                             onDelete={handleDeleteCategory}
                             allEquipment={allEquipment}
+                        />
+                    )}
+                </AnimatePresence>
+                <AnimatePresence>
+                    {isPipelineManagerModalOpen && (
+                        <PipelineManagerModal
+                            isOpen={isPipelineManagerModalOpen}
+                            onClose={() => setPipelineManagerModalOpen(false)}
+                            stages={pipelineStages}
+                            onSave={handleSavePipelineStages}
                         />
                     )}
                 </AnimatePresence>

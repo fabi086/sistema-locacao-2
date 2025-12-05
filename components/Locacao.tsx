@@ -10,8 +10,6 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEn
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 
 
-const columns: RentalStatus[] = ['Aprovado', 'Reservado', 'Em Rota', 'Ativo', 'Concluído', 'Pendente de Pagamento'];
-
 const allStatuses: RentalStatus[] = ['Proposta', 'Aprovado', 'Recusado', 'Reservado', 'Em Rota', 'Ativo', 'Concluído', 'Pendente de Pagamento'];
 const allPaymentStatuses: PaymentStatus[] = ['Pendente', 'Sinal Pago', 'Pago', 'Vencido'];
 
@@ -55,9 +53,10 @@ interface LocacaoProps {
     onUpdatePaymentStatus: (orderId: string, newStatus: PaymentStatus) => void;
     onOpenScheduleDeliveryModal: (order: RentalOrder) => void;
     onOpenPrintModal: (order: RentalOrder) => void;
+    stages: RentalStatus[];
 }
 
-const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEdit, onDelete, onUpdateStatus, onUpdatePaymentStatus, onOpenScheduleDeliveryModal, onOpenPrintModal }) => {
+const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEdit, onDelete, onUpdateStatus, onUpdatePaymentStatus, onOpenScheduleDeliveryModal, onOpenPrintModal, stages }) => {
     const [view, setView] = useState<'pipeline' | 'table'>('pipeline');
     const [selectedOrder, setSelectedOrder] = useState<RentalOrder | null>(null);
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -76,11 +75,11 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEd
     );
 
     const ordersByStatus = useMemo(() => {
-        return columns.reduce((acc, status) => {
+        return stages.reduce((acc, status) => {
             acc[status] = orders.filter(order => order.status === status);
             return acc;
         }, {} as Record<RentalStatus, RentalOrder[]>);
-    }, [orders]);
+    }, [orders, stages]);
 
     const uniqueClients = useMemo(() => {
         const clients = new Set(orders.map(order => order.client));
@@ -118,7 +117,7 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEd
         if (over && active.id !== over.id) {
             const overContainer = (over.data.current?.sortable?.containerId || over.id) as RentalStatus;
             
-            if (columns.includes(overContainer)) {
+            if (stages.includes(overContainer)) {
                 onUpdateStatus(active.id as string, overContainer);
             }
         }
@@ -127,17 +126,17 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEd
     const renderPipelineView = () => (
         <div className="flex-1 overflow-x-auto p-4 sm:p-6 bg-neutral-bg">
             <div className="flex space-x-4 min-w-max h-full">
-                {columns.map(status => (
+                {stages.map(status => (
                     <div key={status} id={status} className="w-80 bg-neutral-card-alt rounded-lg flex flex-col h-full">
                         <div className={`flex justify-between items-center p-4 border-t-4 ${pipelineStatusColors[status]} rounded-t-lg`}>
                             <h3 className="font-bold text-neutral-text-primary">{status}</h3>
                             <span className="text-sm font-semibold text-neutral-text-secondary bg-neutral-bg px-2 py-0.5 rounded-full">
-                                {ordersByStatus[status].length}
+                                {ordersByStatus[status]?.length || 0}
                             </span>
                         </div>
-                        <SortableContext id={status} items={ordersByStatus[status].map(o => o.id)} strategy={verticalListSortingStrategy}>
+                        <SortableContext id={status} items={ordersByStatus[status]?.map(o => o.id) || []} strategy={verticalListSortingStrategy}>
                             <div className="p-2 space-y-3 overflow-y-auto flex-1">
-                                {ordersByStatus[status].map(order => (
+                                {ordersByStatus[status]?.map(order => (
                                     <OrderCard 
                                         key={order.id} 
                                         order={order} 
