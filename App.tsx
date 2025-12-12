@@ -134,6 +134,84 @@ const App: React.FC = () => {
     const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
     const [confirmationProps, setConfirmationProps] = useState<{ title: string; message: string; onConfirm: () => void }>({ title: '', message: '', onConfirm: () => {} });
 
+    // Helper for safe error messages (Prevents [object Object])
+    const getErrorMessage = (error: any): string => {
+        if (!error) return 'Erro desconhecido';
+        if (typeof error === 'string') return error;
+        
+        // Supabase / Database Error - Formatação rica
+        if (error.message) {
+            let msg = error.message;
+            if (error.code) msg += ` (Código: ${error.code})`;
+            if (error.details) msg += ` - Detalhes: ${error.details}`;
+            if (error.hint) msg += ` - Dica: ${error.hint}`;
+            return msg;
+        }
+        
+        // Fallback seguro
+        try {
+            return JSON.stringify(error);
+        } catch (e) {
+            return 'Erro interno não serializável';
+        }
+    };
+
+    // Function to fetch tenant
+    const fetchTenant = async (userId: string) => {
+        try {
+            const { data: user, error } = await supabase.from('users').select('tenant_id').eq('auth_id', userId).single();
+            if (error) {
+                console.error('Error fetching tenant:', getErrorMessage(error));
+                return;
+            }
+            if (user) setTenantId(user.tenant_id);
+        } catch (e) {
+            console.error('Exception fetching tenant:', getErrorMessage(e));
+        }
+    };
+
+    // Fetch all app data
+    const fetchData = useCallback(async () => {
+        if (!supabase || !tenantId) return;
+        
+        console.log("Carregando dados para tenant:", tenantId);
+
+        try {
+            // Updated table name: 'clients' instead of 'customers'
+            const { data: clientsData, error: clientsError } = await supabase.from('clients').select('*').eq('tenant_id', tenantId);
+            if (clientsError) {
+                console.error("Erro carregando clientes:", getErrorMessage(clientsError));
+            } else {
+                setClients(clientsData || []);
+            }
+
+            // Updated table name: 'equipments' instead of 'equipment'
+            const { data: equipmentData, error: equipmentError } = await supabase.from('equipments').select('*').eq('tenant_id', tenantId);
+            if (equipmentError) {
+                console.error("Erro carregando equipamentos:", getErrorMessage(equipmentError));
+            } else {
+                setEquipment(equipmentData || []);
+            }
+
+            const { data: ordersData, error: ordersError } = await supabase.from('rental_orders').select('*').eq('tenant_id', tenantId);
+            if (ordersError) {
+                console.error("Erro carregando pedidos:", getErrorMessage(ordersError));
+            } else {
+                setRentalOrders(ordersData || []);
+            }
+            
+            const { data: maintData, error: maintError } = await supabase.from('maintenance_orders').select('*').eq('tenant_id', tenantId);
+            if (maintError) {
+                console.error("Erro carregando manutenção:", getErrorMessage(maintError));
+            } else {
+                setMaintenanceOrders(maintData || []);
+            }
+
+        } catch (error) {
+            console.error("Erro geral ao carregar dados:", getErrorMessage(error));
+        }
+    }, [tenantId]);
+
     useEffect(() => {
         const initSession = async () => {
             const demo = localStorage.getItem('obrafacil_demo') === 'true';
@@ -163,26 +241,54 @@ const App: React.FC = () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
                 setSession(session);
-                // Fetch user profile for tenant_id
-                const { data: user } = await supabase.from('users').select('tenant_id').eq('auth_id', session.user.id).single();
-                if (user) setTenantId(user.tenant_id);
-                // Aqui você carregaria os dados reais do Supabase
+                fetchTenant(session.user.id);
             }
         };
 
         initSession();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             setSession(session);
-            if (!session) {
+            if (session) {
+                fetchTenant(session.user.id);
+            } else {
                 setTenantId(null);
                 setIsDemo(false);
+                setClients([]);
+                setEquipment([]);
+                setRentalOrders([]);
                 localStorage.removeItem('obrafacil_demo');
             }
         });
 
         return () => subscription.unsubscribe();
     }, []);
+
+    // Trigger fetch when tenantId changes
+    useEffect(() => {
+        if (tenantId && !isDemo) {
+            fetchData();
+        }
+    }, [tenantId, isDemo, fetchData]);
+
+    const handleLoginSuccess = () => {
+        const isDemoMode = localStorage.getItem('obrafacil_demo') === 'true';
+        if (isDemoMode) {
+            setIsDemo(true);
+            setTenantId('demo-tenant');
+            setClients(mockClients);
+            setEquipment(mockEquipment);
+            setRentalOrders(mockOrders);
+            setContracts(mockContracts);
+            
+            const demoCompany = localStorage.getItem('obrafacil_demo_company');
+            if (demoCompany) setCompanySettings(JSON.parse(demoCompany));
+        } else {
+            supabase.auth.getSession().then(({ data: { session } }) => {
+                if(session) fetchTenant(session.user.id);
+            });
+        }
+    };
 
     // Handlers
     const handleLogout = async () => {
@@ -210,17 +316,28 @@ const App: React.FC = () => {
             return;
         }
 
-        if (!supabase || !tenantId) {
-            alert("Erro de autenticação ou sessão inválida.");
+        // Try to recover tenantId if missing but session exists
+        let currentTenantId = tenantId;
+        if (!currentTenantId && session) {
+             const { data: user } = await supabase.from('users').select('tenant_id').eq('auth_id', session.user.id).single();
+             if (user) {
+                 currentTenantId = user.tenant_id;
+                 setTenantId(user.tenant_id);
+             }
+        }
+
+        if (!supabase || !currentTenantId) {
+            alert("Sessão expirada ou inválida. Por favor, recarregue a página ou faça login novamente.");
             return;
         }
 
         try {
             let savedClient: Customer | null = null;
 
+            // Updated table name: 'clients' instead of 'customers'
             if (data.id) {
                 const { data: updatedData, error } = await supabase
-                    .from('customers')
+                    .from('clients')
                     .update(data)
                     .eq('id', data.id)
                     .select()
@@ -229,22 +346,19 @@ const App: React.FC = () => {
                 if (error) throw error;
                 savedClient = updatedData;
             } else {
-                const maxId = clients.reduce((max, c) => {
-                    const parts = c.id.split('-');
-                    const num = parseInt(parts[1]);
-                    return !isNaN(num) && num > max ? num : max;
-                }, 0);
-                const newId = `CLI-${(maxId + 1).toString().padStart(3, '0')}`;
+                const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+                const timestamp = Date.now().toString().slice(-4);
+                const newId = `CLI-${timestamp}${randomSuffix}`;
 
                 const newClient = {
                     ...data,
                     id: newId,
-                    tenant_id: tenantId,
+                    tenant_id: currentTenantId,
                     status: 'Ativo'
                 };
 
                 const { data: createdData, error } = await supabase
-                    .from('customers')
+                    .from('clients')
                     .insert(newClient)
                     .select()
                     .single();
@@ -265,7 +379,7 @@ const App: React.FC = () => {
 
         } catch (error: any) {
             console.error("Erro ao salvar cliente:", error);
-            alert(`Falha ao salvar cliente: ${error.message || 'Erro desconhecido.'}`);
+            alert(`Falha ao salvar cliente: ${getErrorMessage(error)}`);
         }
     };
 
@@ -280,33 +394,36 @@ const App: React.FC = () => {
             return;
         }
 
-        if (!supabase || !tenantId) {
+        let currentTenantId = tenantId;
+        if (!currentTenantId && session) {
+             const { data: user } = await supabase.from('users').select('tenant_id').eq('auth_id', session.user.id).single();
+             if (user) {
+                 currentTenantId = user.tenant_id;
+                 setTenantId(user.tenant_id);
+             }
+        }
+
+        if (!supabase || !currentTenantId) {
             alert("Sessão inválida.");
             return;
         }
 
         try {
-            // Mapear campos do frontend para o banco se necessário, ou enviar objeto direto
-            // Assumindo que o banco tem colunas snake_case ou o usuario criou colunas camelCase.
-            // Para garantir, vamos espalhar data.
-            const payload = { ...data, tenant_id: tenantId };
+            const payload = { ...data, tenant_id: currentTenantId };
             
             let savedEquipment: Equipment | null = null;
 
+            // Updated table name: 'equipments' instead of 'equipment'
             if (data.id) {
-                const { data: updated, error } = await supabase.from('equipment').update(payload).eq('id', data.id).select().single();
+                const { data: updated, error } = await supabase.from('equipments').update(payload).eq('id', data.id).select().single();
                 if (error) throw error;
                 savedEquipment = updated;
             } else {
-                // Gerar ID
-                const maxId = equipment.reduce((max, e) => {
-                    const parts = e.id.split('-');
-                    const num = parseInt(parts[1]);
-                    return !isNaN(num) && num > max ? num : max;
-                }, 0);
-                const newId = `EQ-${(maxId + 1).toString().padStart(3, '0')}`;
+                const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+                const timestamp = Date.now().toString().slice(-4);
+                const newId = `EQ-${timestamp}${randomSuffix}`;
                 
-                const { data: created, error } = await supabase.from('equipment').insert({ ...payload, id: newId }).select().single();
+                const { data: created, error } = await supabase.from('equipments').insert({ ...payload, id: newId }).select().single();
                 if (error) throw error;
                 savedEquipment = created;
             }
@@ -320,7 +437,7 @@ const App: React.FC = () => {
             }
         } catch (error: any) {
             console.error("Erro ao salvar equipamento", error);
-            alert("Erro ao salvar equipamento: " + error.message);
+            alert(`Erro ao salvar equipamento: ${getErrorMessage(error)}`);
         }
     };
 
@@ -332,11 +449,12 @@ const App: React.FC = () => {
                 if (isDemo) {
                     setClients(prev => prev.filter(c => c.id !== client.id));
                 } else if (supabase) {
-                    const { error } = await supabase.from('customers').delete().eq('id', client.id);
+                    // Updated table name: 'clients'
+                    const { error } = await supabase.from('clients').delete().eq('id', client.id);
                     if (!error) {
                         setClients(prev => prev.filter(c => c.id !== client.id));
                     } else {
-                        alert("Erro ao excluir: " + error.message);
+                        alert(`Erro ao excluir: ${getErrorMessage(error)}`);
                     }
                 }
                 setIsConfirmationModalOpen(false);
@@ -353,11 +471,12 @@ const App: React.FC = () => {
                 if (isDemo) {
                     setEquipment(prev => prev.filter(e => e.id !== eq.id));
                 } else if (supabase) {
-                    const { error } = await supabase.from('equipment').delete().eq('id', eq.id);
+                    // Updated table name: 'equipments'
+                    const { error } = await supabase.from('equipments').delete().eq('id', eq.id);
                     if (!error) {
                         setEquipment(prev => prev.filter(e => e.id !== eq.id));
                     } else {
-                        alert("Erro ao excluir: " + error.message);
+                        alert(`Erro ao excluir: ${getErrorMessage(error)}`);
                     }
                 }
                 setIsConfirmationModalOpen(false);
@@ -383,15 +502,22 @@ const App: React.FC = () => {
             return;
         }
 
-        if (!supabase || !tenantId) {
+        let currentTenantId = tenantId;
+        if (!currentTenantId && session) {
+             const { data: user } = await supabase.from('users').select('tenant_id').eq('auth_id', session.user.id).single();
+             if (user) {
+                 currentTenantId = user.tenant_id;
+                 setTenantId(user.tenant_id);
+             }
+        }
+
+        if (!supabase || !currentTenantId) {
             alert("Sessão inválida.");
             return;
         }
 
         try {
-            const payload = { ...orderData, tenant_id: tenantId };
-            // Remover campos que podem ser derivados ou não existem na tabela se necessário
-            // Supabase é flexível com JSONB, mas se equipmentItems for uma coluna separada, ok.
+            const payload = { ...orderData, tenant_id: currentTenantId };
             
             let savedOrder: RentalOrder | null = null;
 
@@ -400,12 +526,9 @@ const App: React.FC = () => {
                 if (error) throw error;
                 savedOrder = data;
             } else {
-                const maxId = rentalOrders.reduce((max, o) => {
-                    const parts = o.id.split('-');
-                    const num = parseInt(parts[1]);
-                    return !isNaN(num) && num > max ? num : max;
-                }, 0);
-                const newId = `PED-${(maxId + 1).toString().padStart(3, '0')}`;
+                const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+                const timestamp = Date.now().toString().slice(-4);
+                const newId = `PED-${timestamp}${randomSuffix}`;
                 
                 const newOrderPayload = {
                     ...payload,
@@ -431,7 +554,7 @@ const App: React.FC = () => {
 
         } catch (error: any) {
             console.error("Erro ao salvar pedido", error);
-            alert("Erro ao salvar pedido: " + error.message);
+            alert(`Erro ao salvar pedido: ${getErrorMessage(error)}`);
         }
     };
 
@@ -447,7 +570,7 @@ const App: React.FC = () => {
                     if (!error) {
                         setRentalOrders(prev => prev.filter(o => o.id !== order.id));
                     } else {
-                        alert("Erro ao excluir: " + error.message);
+                        alert(`Erro ao excluir: ${getErrorMessage(error)}`);
                     }
                 }
                 setIsConfirmationModalOpen(false);
@@ -479,7 +602,7 @@ const App: React.FC = () => {
                 if (error) throw error;
             } catch (error: any) {
                 console.error("Erro ao atualizar status", error);
-                // Revert optimistic update here if needed
+                alert(`Falha ao atualizar status: ${getErrorMessage(error)}`);
             }
         }
             
@@ -496,7 +619,7 @@ const App: React.FC = () => {
                         status: 'Ativo'
                     };
                     setContracts(prev => [...prev, newContract]);
-                    // Se não for demo, salvar contrato no supabase aqui também
+                    // Se não for demo, salvar contrato no supabase aqui também (futuro)
                 }
         }
     };
@@ -552,10 +675,16 @@ const App: React.FC = () => {
             return;
         }
 
-        if (!supabase || !tenantId) return;
+        let currentTenantId = tenantId;
+        if (!currentTenantId && session) {
+             const { data: user } = await supabase.from('users').select('tenant_id').eq('auth_id', session.user.id).single();
+             if (user) currentTenantId = user.tenant_id;
+        }
+
+        if (!supabase || !currentTenantId) return;
 
         try {
-            const payload = { ...data, tenant_id: tenantId };
+            const payload = { ...data, tenant_id: currentTenantId };
             let savedOrder: MaintenanceOrder | null = null;
 
             if (data.id) {
@@ -563,8 +692,8 @@ const App: React.FC = () => {
                 if (error) throw error;
                 savedOrder = updated;
             } else {
-                // Simple ID gen
-                const newId = `OS-${Date.now().toString().slice(-6)}`;
+                const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+                const newId = `OS-${randomSuffix}`;
                 const { data: created, error } = await supabase.from('maintenance_orders').insert({ ...payload, id: newId }).select().single();
                 if (error) throw error;
                 savedOrder = created;
@@ -578,7 +707,7 @@ const App: React.FC = () => {
                 setIsAddMaintenanceModalOpen(false);
             }
         } catch (error: any) {
-            alert("Erro ao salvar manutenção: " + error.message);
+            alert(`Erro ao salvar manutenção: ${getErrorMessage(error)}`);
         }
     };
 
@@ -653,8 +782,6 @@ const App: React.FC = () => {
 
     const handleSaveCompanySettings = (settings: CompanySettings) => {
         setCompanySettings(settings);
-        // Persistir no localStorage sempre, para garantir que as configurações fiquem salvas no navegador
-        // Isso resolve o problema de "não salvar" imediatamente para o usuário
         localStorage.setItem('obrafacil_company_settings', JSON.stringify(settings));
         
         if (isDemo) {
@@ -760,7 +887,7 @@ const App: React.FC = () => {
     };
 
     if (!session && !isDemo) {
-        return <Login onLoginSuccess={() => { /* State update handled by auth listener or localStorage check */ }} />;
+        return <Login onLoginSuccess={handleLoginSuccess} />;
     }
 
     const navigationItems = [
@@ -878,8 +1005,7 @@ const App: React.FC = () => {
                 <QuotePrintModal 
                     quote={printOrder} 
                     client={clients.find(c => c.name === printOrder.client)}
-                    onClose={() => setIsQuotePrintModalOpen(false)}
-                    companySettings={companySettings}
+                    onClose={() => setIsQuotePrintModalOpen(false)} 
                 />
             )}
             {isContractPrintModalOpen && printContract && (
@@ -888,7 +1014,6 @@ const App: React.FC = () => {
                     order={rentalOrders.find(o => `CON-${o.id}` === printContract.id)}
                     client={clients.find(c => c.name === printContract.client)}
                     onClose={() => setIsContractPrintModalOpen(false)}
-                    companySettings={companySettings}
                 />
             )}
             {isReceiptPrintModalOpen && printReceiptOrder && (

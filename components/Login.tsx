@@ -105,7 +105,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                      if (msg.includes('email not confirmed')) {
                         throw new Error('Seu email ainda não foi confirmado. Por favor, verifique sua caixa de entrada.');
                     }
-                    throw signInError;
+                    // Generic fallback
+                    throw new Error(signInError.message || 'Falha ao fazer login.');
                 }
                 onLoginSuccess();
             }
