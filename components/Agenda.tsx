@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Truck, Wrench } from 'lucide-react';
@@ -15,32 +16,40 @@ interface AgendaProps {
 }
 
 const Agenda: React.FC<AgendaProps> = ({ rentalOrders, maintenanceOrders }) => {
-    const [currentDate, setCurrentDate] = useState(new Date('2024-08-01T12:00:00Z'));
+    const [currentDate, setCurrentDate] = useState(new Date());
 
     const isSameDay = (d1: Date, d2: Date) => d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
 
     const allEvents = useMemo(() => {
         const events: CalendarEvent[] = [];
 
-        // Events from rental orders
+        // Events from rental orders - Now focusing on ITEMS level for accurate tracking
         rentalOrders.forEach(order => {
-            if (order.deliveryDate) {
-                events.push({
-                    id: `${order.id}-entrega`,
-                    title: `Entrega: ${order.id}`,
-                    date: order.deliveryDate,
-                    type: 'Entrega'
-                });
-            }
-            // Add collection event based on the rental end date
-            if (['Ativo', 'Concluído', 'Pendente de Pagamento'].includes(order.status)) {
-                 events.push({
-                    id: `${order.id}-coleta`,
-                    title: `Coleta: ${order.id}`,
-                    date: order.endDate,
-                    type: 'Coleta'
-                 });
-            }
+            if (order.status === 'Recusado' || order.status === 'Concluído') return;
+
+            order.equipmentItems.forEach((item, index) => {
+                // Determine effective dates for this item: prioritize item-specific dates, fallback to order dates
+                const effectiveStartDate = item.startDate || order.startDate;
+                const effectiveEndDate = item.endDate || order.endDate;
+
+                if (effectiveStartDate) {
+                    events.push({
+                        id: `${order.id}-entrega-${index}`,
+                        title: `Entrega: ${item.equipmentName} (${order.client})`,
+                        date: effectiveStartDate,
+                        type: 'Entrega'
+                    });
+                }
+
+                if (effectiveEndDate) {
+                    events.push({
+                        id: `${order.id}-coleta-${index}`,
+                        title: `Coleta: ${item.equipmentName} (${order.client})`,
+                        date: effectiveEndDate,
+                        type: 'Coleta'
+                    });
+                }
+            });
         });
 
         // Events from maintenance orders
@@ -85,11 +94,14 @@ const Agenda: React.FC<AgendaProps> = ({ rentalOrders, maintenanceOrders }) => {
 
     const eventsByDate = useMemo(() => {
         return allEvents.reduce((acc, event) => {
-            const date = event.date;
-            if (!acc[date]) {
-                acc[date] = [];
+            // Ensure we handle date strings correctly (YYYY-MM-DD)
+            // Sometimes incoming dates might have time components or be full ISO strings
+            const dateStr = event.date.split('T')[0];
+            
+            if (!acc[dateStr]) {
+                acc[dateStr] = [];
             }
-            acc[date].push(event);
+            acc[dateStr].push(event);
             return acc;
         }, {} as Record<string, CalendarEvent[]>);
     }, [allEvents]);
@@ -145,8 +157,8 @@ const Agenda: React.FC<AgendaProps> = ({ rentalOrders, maintenanceOrders }) => {
                                         const { bg, text, Icon } = eventColors[event.type];
                                         return (
                                             <div key={event.id} className={`p-1.5 rounded-md text-xs ${bg} ${text} flex items-center gap-1.5`}>
-                                                <Icon size={12} />
-                                                <span className="font-semibold truncate">{event.title}</span>
+                                                <Icon size={12} className="flex-shrink-0" />
+                                                <span className="font-semibold truncate leading-tight" title={event.title}>{event.title}</span>
                                             </div>
                                         );
                                     })}

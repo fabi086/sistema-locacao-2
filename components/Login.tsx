@@ -1,14 +1,11 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { HardHat, Mail, Lock, Loader2, Building, User } from 'lucide-react';
+import { HardHat, Mail, Lock, Loader2, Building, User, LayoutDashboard } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 interface LoginProps {
     onLoginSuccess: () => void;
 }
-
-type AuthMode = 'login' | 'signup' | 'forgotPassword';
 
 // Fallback para gerar UUID válido
 const generateUUID = () => {
@@ -22,7 +19,7 @@ const generateUUID = () => {
 };
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
-    const [authMode, setAuthMode] = useState<AuthMode>('login');
+    const [isSignUp, setIsSignUp] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [companyName, setCompanyName] = useState('');
@@ -37,90 +34,80 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         setMessage('');
         setLoading(true);
 
+        const cleanEmail = email.trim();
+
         try {
             if (!supabase) throw new Error("Cliente Supabase não configurado.");
 
-            if (authMode !== 'login' && password.length < 6) {
+            if (password.length < 6) {
                 throw new Error("A senha deve ter pelo menos 6 caracteres.");
             }
-
-            let authUser = null;
-
-            if (authMode === 'signup') {
+            
+            if (isSignUp) {
                 // --- SIGN UP ---
-                const { data, error: signUpError } = await supabase.auth.signUp({
-                    email,
-                    password,
-                    options: {
-                        data: {
-                            full_name: fullName,
-                            company_name: companyName
-                        }
-                    }
-                });
+                if (!fullName || !companyName) {
+                    throw new Error("Nome completo e nome da empresa são obrigatórios para o cadastro.");
+                }
+
+                const { data, error: signUpError } = await supabase.auth.signUp({ email: cleanEmail, password });
 
                 if (signUpError) {
-                    if (signUpError.message?.includes("already registered") || signUpError.status === 400) {
-                        throw new Error("Este email já está cadastrado. Por favor, faça login.");
-                    } else {
-                        throw signUpError;
+                    if (signUpError.message?.includes("User already registered")) {
+                         throw new Error("Este email já está cadastrado. Tente fazer login.");
                     }
+                    throw signUpError;
                 }
                 
-                authUser = data.user;
-                // Se precisar de confirmação de email
-                if (authUser && !authUser.email_confirmed_at && !data.session) {
-                     setMessage('Cadastro realizado! Verifique seu email para confirmar a conta.');
-                     setLoading(false);
-                     return;
-                }
-            } else {
-                // --- SIGN IN ---
-                const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-                if (signInError) {
-                    if (signInError.message === 'Invalid login credentials') throw new Error('Email ou senha incorretos.');
-                    if (signInError.message === 'Email not confirmed') throw new Error('Email não confirmado. Verifique sua caixa de entrada.');
-                    throw signInError;
-                }
-                authUser = data.user;
-            }
-
-            if (authUser) {
-                // --- GARANTIA DE PERFIL (UPSERT) ---
-                const { data: existingProfile } = await supabase
-                    .from('users')
-                    .select('id, tenant_id')
-                    .eq('auth_id', authUser.id)
-                    .maybeSingle();
-
-                if (!existingProfile) {
-                    console.log("Perfil não encontrado no banco. Criando novo perfil (Auto-Healing)...");
-                    
+                if (data.user) {
+                     // Create Tenant and User Profile
                     const newTenantId = generateUUID();
-                    const newUserId = 'USR-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-                    const nameToUse = fullName || authUser.user_metadata?.full_name || email.split('@')[0];
-
-                    const { error: upsertError } = await supabase.from('users').upsert({
+                    // Fix: Generate unique User ID to avoid Primary Key collisions
+                    const newUserId = generateUUID(); 
+                    
+                    const { error: profileError } = await supabase.from('users').insert({
                         id: newUserId,
                         tenant_id: newTenantId,
-                        auth_id: authUser.id,
-                        name: nameToUse,
-                        email: email,
+                        auth_id: data.user.id,
+                        name: fullName,
+                        email: cleanEmail,
                         role: 'Admin',
                         status: 'Ativo',
                         lastLogin: new Date().toISOString()
-                    }, { onConflict: 'auth_id' });
+                    });
 
-                    if (upsertError) {
-                        throw new Error(`Erro ao criar perfil: ${upsertError.message}`);
+                    if (profileError) {
+                        console.error("Erro ao criar perfil do usuário:", profileError);
+                        // Optional: don't block flow if profile creation fails, but it's risky.
                     }
-                } else {
-                    await supabase.from('users').update({ lastLogin: new Date().toISOString() }).eq('auth_id', authUser.id);
                 }
                 
-                setTimeout(() => {
+                // If email confirmation is required, this message will be shown.
+                if (data.user && !data.session) {
+                    setMessage('Cadastro realizado! Verifique seu email para confirmar a conta e poder fazer login.');
+                    setLoading(false);
+                    return;
+                }
+                // If no confirmation needed, log them in directly
+                if(data.session) {
                     onLoginSuccess();
-                }, 500);
+                }
+
+            } else {
+                // --- SIGN IN ---
+                const { error: signInError } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+
+                if (signInError) {
+                    console.error("Supabase Sign In Error:", signInError);
+                    const msg = signInError.message.toLowerCase();
+                    if (msg.includes('invalid login credentials') || msg.includes('invalid_grant')) {
+                        throw new Error('Email ou senha incorretos. Verifique suas credenciais.');
+                    }
+                     if (msg.includes('email not confirmed')) {
+                        throw new Error('Seu email ainda não foi confirmado. Por favor, verifique sua caixa de entrada.');
+                    }
+                    throw signInError;
+                }
+                onLoginSuccess();
             }
 
         } catch (err: any) {
@@ -131,35 +118,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         }
     };
 
-    const handlePasswordReset = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setMessage('');
-        setLoading(true);
-
-        try {
-            if (!supabase) throw new Error("Cliente Supabase não configurado.");
-            
-            const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: window.location.origin,
-            });
-
-            if (resetError) throw resetError;
-
-            setMessage("Verifique seu email para as instruções de recuperação de senha.");
-            
-        } catch (err: any) {
-            setError(err.message || 'Erro ao tentar recuperar a senha.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const switchMode = (mode: AuthMode) => {
-        setAuthMode(mode);
-        setError('');
-        setMessage('');
-        setPassword('');
+    const handleDemoLogin = () => {
+        localStorage.setItem('obrafacil_demo', 'true');
+        onLoginSuccess();
     };
 
     return (
@@ -178,15 +139,13 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         <h1 className="text-3xl font-bold text-primary">ObraFácil</h1>
                     </div>
                     <p className="text-neutral-text-secondary">
-                        {authMode === 'signup' && 'Crie sua conta e gerencie sua locadora.'}
-                        {authMode === 'login' && 'Acesse sua conta para gerenciar.'}
-                        {authMode === 'forgotPassword' && 'Digite seu email para recuperar sua senha.'}
+                        {isSignUp ? 'Crie sua conta e gerencie sua locadora.' : 'Acesse sua conta para gerenciar.'}
                     </p>
                 </div>
-                
-                <form className="mt-8 space-y-6" onSubmit={authMode === 'forgotPassword' ? handlePasswordReset : handleAuth}>
+
+                <form className="mt-8 space-y-6" onSubmit={handleAuth}>
                     <div className="rounded-md shadow-sm space-y-4">
-                         {authMode === 'signup' && (
+                        {isSignUp && (
                             <>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Empresa</label>
@@ -194,7 +153,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                         <Building size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
                                         <input
                                             type="text"
-                                            required={authMode === 'signup'}
+                                            required={isSignUp}
                                             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-gray-900"
                                             placeholder="Minha Locadora Ltda"
                                             value={companyName}
@@ -208,7 +167,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                         <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
                                         <input
                                             type="text"
-                                            required={authMode === 'signup'}
+                                            required={isSignUp}
                                             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-gray-900"
                                             placeholder="João Silva"
                                             value={fullName}
@@ -229,38 +188,26 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-gray-900"
                                     placeholder="email@empresa.com"
                                     value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
+                                    onChange={(e) => setEmail(e.target.value.trim())}
                                 />
                             </div>
                         </div>
-
-                        {authMode !== 'forgotPassword' && (
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
-                                <div className="relative">
-                                    <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
-                                    <input
-                                        type="password"
-                                        required
-                                        minLength={6}
-                                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-gray-900"
-                                        placeholder="••••••••"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                    />
-                                </div>
-                                {authMode === 'login' && (
-                                    <div className="text-right text-sm mt-1">
-                                        <button type="button" onClick={() => switchMode('forgotPassword')} className="font-semibold text-primary hover:text-primary-dark hover:underline">
-                                            Esqueceu a senha?
-                                        </button>
-                                    </div>
-                                )}
-                                {authMode === 'signup' && (
-                                     <p className="text-xs text-gray-500 mt-1">Mínimo 6 caracteres</p>
-                                )}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                            <div className="relative">
+                                <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-text-secondary" />
+                                <input
+                                    type="password"
+                                    required
+                                    minLength={6}
+                                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition bg-white text-gray-900"
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Mínimo 6 caracteres</p>
                             </div>
-                        )}
+                        </div>
                     </div>
 
                     {error && (
@@ -274,37 +221,32 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         </div>
                     )}
 
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3">
                         <button
                             type="submit"
                             disabled={loading}
                             className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-dark transition-colors disabled:opacity-70 shadow-sm items-center gap-2"
                         >
-                            {loading ? <Loader2 className="animate-spin h-5 w-5" /> : 
-                                authMode === 'signup' ? 'Criar Conta' :
-                                authMode === 'login' ? 'Entrar' : 'Recuperar Senha'
-                            }
+                            {loading ? <Loader2 className="animate-spin h-5 w-5" /> : (isSignUp ? "Criar Conta" : "Entrar")}
+                        </button>
+
+                         <button
+                            type="button"
+                            onClick={handleDemoLogin}
+                            className="w-full flex justify-center py-3 px-4 border border-gray-300 text-sm font-bold rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm items-center gap-2"
+                        >
+                           <LayoutDashboard size={18} className="text-secondary" />
+                           Acessar Demonstração (Sem Login)
                         </button>
                         
-                        <div className="text-center">
-                            {authMode !== 'forgotPassword' && (
-                                <button
-                                    type="button"
-                                    onClick={() => switchMode(authMode === 'login' ? 'signup' : 'login')}
-                                    className="text-sm font-semibold text-primary hover:text-primary-dark hover:underline transition-colors"
-                                >
-                                    {authMode === 'signup' ? "Já tem uma conta? Fazer login" : "Não tem uma conta? Cadastre-se"}
-                                </button>
-                            )}
-                             {authMode === 'forgotPassword' && (
-                                <button
-                                    type="button"
-                                    onClick={() => switchMode('login')}
-                                    className="text-sm font-semibold text-primary hover:text-primary-dark hover:underline transition-colors"
-                                >
-                                    Voltar para o login
-                                </button>
-                            )}
+                        <div className="text-center mt-2">
+                            <button
+                                type="button"
+                                onClick={() => { setIsSignUp(!isSignUp); setError(''); setMessage(''); }}
+                                className="text-sm font-semibold text-primary hover:text-primary-dark hover:underline transition-colors"
+                            >
+                                {isSignUp ? "Já tem uma conta? Fazer login" : "Não tem uma conta? Cadastre-se"}
+                            </button>
                         </div>
                     </div>
                 </form>

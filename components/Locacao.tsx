@@ -3,21 +3,45 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Printer, Edit2, Trash2, LayoutGrid, List, MapPin } from 'lucide-react';
-import { Equipment, RentalOrder, RentalStatus, Customer, PaymentStatus, PipelineStage } from '../types';
+import { Equipment, RentalOrder, RentalStatus, Customer, PaymentStatus } from '../types';
 import OrderCard from './OrderCard';
 import OrderDetailModal from './OrderDetailModal';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 
 
+const allStatuses: RentalStatus[] = ['Proposta', 'Aprovado', 'Recusado', 'Reservado', 'Em Rota', 'Ativo', 'Concluído', 'Pendente de Pagamento'];
 const allPaymentStatuses: PaymentStatus[] = ['Pendente', 'Sinal Pago', 'Pago', 'Vencido'];
 
-const paymentColorMap: Record<PaymentStatus, string> = {
-    'Pendente': '#F97316', // orange-500
-    'Sinal Pago': '#3B82F6', // blue-500
-    'Pago': '#22C55E', // green-500
-    'Vencido': '#EF4444', // red-500
+const pipelineStatusColors: Record<RentalStatus, string> = {
+    'Proposta': 'border-gray-400',
+    'Aprovado': 'border-blue-500',
+    'Recusado': 'border-red-500',
+    'Reservado': 'border-purple-500',
+    'Em Rota': 'border-yellow-500',
+    'Ativo': 'border-green-500',
+    'Concluído': 'border-gray-600',
+    'Pendente de Pagamento': 'border-orange-500',
 };
+
+const tableStatusColors: Record<RentalStatus, string> = {
+    'Proposta': 'bg-yellow-500/10 text-yellow-600',
+    'Aprovado': 'bg-accent-success/10 text-accent-success',
+    'Recusado': 'bg-accent-danger/10 text-accent-danger',
+    'Reservado': 'bg-purple-500/10 text-purple-600',
+    'Em Rota': 'bg-yellow-500/10 text-yellow-600',
+    'Ativo': 'bg-blue-500/10 text-blue-600',
+    'Concluído': 'bg-gray-500/10 text-gray-600',
+    'Pendente de Pagamento': 'bg-orange-500/10 text-orange-600',
+};
+
+const paymentStatusColors: Record<PaymentStatus, string> = {
+    'Pendente': 'bg-orange-500/10 text-orange-600',
+    'Sinal Pago': 'bg-blue-500/10 text-blue-600',
+    'Pago': 'bg-green-500/10 text-green-600',
+    'Vencido': 'bg-red-500/10 text-red-600',
+};
+
 
 interface LocacaoProps {
     orders: RentalOrder[];
@@ -29,7 +53,7 @@ interface LocacaoProps {
     onUpdatePaymentStatus: (orderId: string, newStatus: PaymentStatus) => void;
     onOpenScheduleDeliveryModal: (order: RentalOrder) => void;
     onOpenPrintModal: (order: RentalOrder) => void;
-    stages: PipelineStage[];
+    stages: RentalStatus[];
 }
 
 const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEdit, onDelete, onUpdateStatus, onUpdatePaymentStatus, onOpenScheduleDeliveryModal, onOpenPrintModal, stages }) => {
@@ -41,23 +65,6 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEd
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<RentalStatus | 'Todos'>('Todos');
     const [clientFilter, setClientFilter] = useState<string>('Todos');
-    
-    const stageColorMap = useMemo(() => {
-        const map = new Map<string, string>();
-        stages.forEach(stage => map.set(stage.name, stage.color));
-        // Adicionar cores para status que não estão no pipeline principal, mas podem aparecer
-        map.set('Proposta', '#78716c');
-        map.set('Recusado', '#EF4444');
-        return map;
-    }, [stages]);
-    
-    const getBadgeStyle = (color: string | undefined) => {
-        const badgeColor = color || '#cccccc';
-        return {
-            backgroundColor: `${badgeColor}1A`, // hex com alpha
-            color: badgeColor,
-        };
-    };
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -68,10 +75,10 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEd
     );
 
     const ordersByStatus = useMemo(() => {
-        return stages.reduce((acc, stage) => {
-            acc[stage.name] = orders.filter(order => order.status === stage.name);
+        return stages.reduce((acc, status) => {
+            acc[status] = orders.filter(order => order.status === status);
             return acc;
-        }, {} as Record<string, RentalOrder[]>);
+        }, {} as Record<RentalStatus, RentalOrder[]>);
     }, [orders, stages]);
 
     const uniqueClients = useMemo(() => {
@@ -110,7 +117,7 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEd
         if (over && active.id !== over.id) {
             const overContainer = (over.data.current?.sortable?.containerId || over.id) as RentalStatus;
             
-            if (stages.some(s => s.name === overContainer)) {
+            if (stages.includes(overContainer)) {
                 onUpdateStatus(active.id as string, overContainer);
             }
         }
@@ -119,25 +126,22 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEd
     const renderPipelineView = () => (
         <div className="flex-1 overflow-x-auto p-4 sm:p-6 bg-neutral-bg">
             <div className="flex space-x-4 min-w-max h-full">
-                {stages.map(stage => (
-                    <div key={stage.id} id={stage.name} className="w-80 bg-neutral-card-alt rounded-lg flex flex-col h-full">
-                        <div className="flex justify-between items-center p-4 border-t-4 rounded-t-lg" style={{ borderColor: stage.color }}>
-                            <h3 className="font-bold text-neutral-text-primary">{stage.name}</h3>
+                {stages.map(status => (
+                    <div key={status} id={status} className="w-80 bg-neutral-card-alt rounded-lg flex flex-col h-full">
+                        <div className={`flex justify-between items-center p-4 border-t-4 ${pipelineStatusColors[status]} rounded-t-lg`}>
+                            <h3 className="font-bold text-neutral-text-primary">{status}</h3>
                             <span className="text-sm font-semibold text-neutral-text-secondary bg-neutral-bg px-2 py-0.5 rounded-full">
-                                {ordersByStatus[stage.name]?.length || 0}
+                                {ordersByStatus[status]?.length || 0}
                             </span>
                         </div>
-                        <SortableContext id={stage.name} items={ordersByStatus[stage.name]?.map(o => o.id) || []} strategy={verticalListSortingStrategy}>
+                        <SortableContext id={status} items={ordersByStatus[status]?.map(o => o.id) || []} strategy={verticalListSortingStrategy}>
                             <div className="p-2 space-y-3 overflow-y-auto flex-1">
-                                {ordersByStatus[stage.name]?.map(order => (
+                                {ordersByStatus[status]?.map(order => (
                                     <OrderCard 
                                         key={order.id} 
                                         order={order} 
                                         onClick={() => setSelectedOrder(order)}
-                                        onScheduleDelivery={() => onOpenScheduleDeliveryModal(order)}
                                         isDragging={activeId === order.id}
-                                        stages={stages}
-                                        onUpdateStatus={onUpdateStatus}
                                     />
                                 ))}
                             </div>
@@ -158,6 +162,8 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEd
             hidden: { y: 20, opacity: 0 },
             visible: { y: 0, opacity: 1, transition: { duration: 0.3, ease: 'easeOut' } }
         };
+
+        const totalValue = (order: RentalOrder) => order.value + (order.freightCost || 0) + (order.accessoriesCost || 0) - (order.discount || 0);
 
         return (
              <div className="p-4 sm:p-6 md:p-8">
@@ -185,7 +191,7 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEd
                         onChange={(e) => setStatusFilter(e.target.value as RentalStatus | 'Todos')}
                      >
                         <option value="Todos">Todos Status</option>
-                        {stages.map(stage => <option key={stage.id} value={stage.name}>{stage.name}</option>)}
+                        {allStatuses.map(status => <option key={status} value={status}>{status}</option>)}
                     </select>
                 </div>
                 
@@ -223,11 +229,10 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEd
                                                 value={order.status}
                                                 onChange={(e) => onUpdateStatus(order.id, e.target.value as RentalStatus)}
                                                 onClick={(e) => e.stopPropagation()}
-                                                className="pl-2.5 pr-8 py-1 text-xs font-semibold rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary border-none transition-colors"
-                                                style={getBadgeStyle(stageColorMap.get(order.status))}
+                                                className={`pl-2.5 pr-8 py-1 text-xs font-semibold rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary border-none transition-colors ${tableStatusColors[order.status]}`}
                                                 aria-label={`Mudar status do pedido ${order.id}`}
                                             >
-                                                {stages.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                                                {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                                             </select>
                                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-current">
                                                 <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
@@ -240,8 +245,7 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEd
                                                 value={order.paymentStatus || 'Pendente'}
                                                 onChange={(e) => onUpdatePaymentStatus(order.id, e.target.value as PaymentStatus)}
                                                 onClick={(e) => e.stopPropagation()}
-                                                className="pl-2.5 pr-8 py-1 text-xs font-semibold rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary border-none transition-colors"
-                                                style={getBadgeStyle(paymentColorMap[order.paymentStatus || 'Pendente'])}
+                                                className={`pl-2.5 pr-8 py-1 text-xs font-semibold rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary border-none transition-colors ${paymentStatusColors[order.paymentStatus || 'Pendente']}`}
                                                 aria-label={`Mudar status financeiro do pedido ${order.id}`}
                                             >
                                                 {allPaymentStatuses.map(s => <option key={s} value={s}>{s}</option>)}
@@ -291,10 +295,9 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEd
                                         value={order.status}
                                         onChange={(e) => onUpdateStatus(order.id, e.target.value as RentalStatus)}
                                         onClick={(e) => e.stopPropagation()}
-                                        className="pl-2.5 pr-8 py-1 text-xs font-semibold rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-primary border-none transition-colors"
-                                        style={getBadgeStyle(stageColorMap.get(order.status))}
+                                        className={`pl-2.5 pr-8 py-1 text-xs font-semibold rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-primary border-none transition-colors ${tableStatusColors[order.status]}`}
                                     >
-                                        {stages.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                                        {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
                                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-current"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div>
                                 </div>
@@ -308,8 +311,7 @@ const Locacao: React.FC<LocacaoProps> = ({ orders, clients, onOpenAddModal, onEd
                                             value={order.paymentStatus || 'Pendente'}
                                             onChange={(e) => onUpdatePaymentStatus(order.id, e.target.value as PaymentStatus)}
                                             onClick={(e) => e.stopPropagation()}
-                                            className="pl-2.5 pr-8 py-1 text-xs font-semibold rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-primary border-none transition-colors"
-                                            style={getBadgeStyle(paymentColorMap[order.paymentStatus || 'Pendente'])}
+                                            className={`pl-2.5 pr-8 py-1 text-xs font-semibold rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-primary border-none transition-colors ${paymentStatusColors[order.paymentStatus || 'Pendente']}`}
                                         >
                                             {allPaymentStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                                         </select>

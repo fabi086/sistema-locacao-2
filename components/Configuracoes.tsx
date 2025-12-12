@@ -1,17 +1,24 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Users, FileText, BadgeDollarSign, Plug, List, KanbanSquare } from 'lucide-react';
+import { Users, FileText, BadgeDollarSign, Plug, List, KanbanSquare, Building } from 'lucide-react';
 
 interface SettingsCardData {
     icon: React.ElementType;
     title: string;
     description: string;
     buttonText: string;
-    action: 'openPriceTable' | 'navigateTo' | 'openCategoryManager' | 'openPipelineManager';
+    action: 'openPriceTable' | 'navigateTo' | 'openCategoryManager' | 'openPipelineManager' | 'openCompanySettings';
     page?: string;
 }
 
 const settingsCards: SettingsCardData[] = [
+    {
+        icon: Building,
+        title: "Dados da Empresa",
+        description: "Configure o nome, endereço, CNPJ e contatos que aparecerão nos documentos.",
+        buttonText: "Editar Dados",
+        action: 'openCompanySettings'
+    },
     {
         icon: Users,
         title: "Usuários e Permissões",
@@ -68,10 +75,17 @@ interface ConfiguracoesProps {
     onOpenPriceTableModal: () => void;
     onOpenCategoryManagerModal: () => void;
     onOpenPipelineManagerModal: () => void;
+    onOpenCompanySettingsModal: () => void;
     setActivePage: (page: string) => void;
 }
 
-const Configuracoes: React.FC<ConfiguracoesProps> = ({ onOpenPriceTableModal, onOpenCategoryManagerModal, onOpenPipelineManagerModal, setActivePage }) => {
+const Configuracoes: React.FC<ConfiguracoesProps> = ({ 
+    onOpenPriceTableModal, 
+    onOpenCategoryManagerModal, 
+    onOpenPipelineManagerModal, 
+    onOpenCompanySettingsModal,
+    setActivePage 
+}) => {
     
     const handleCardClick = (action: SettingsCardData['action'], page?: string) => {
         if (action === 'openPriceTable') {
@@ -80,6 +94,8 @@ const Configuracoes: React.FC<ConfiguracoesProps> = ({ onOpenPriceTableModal, on
             onOpenCategoryManagerModal();
         } else if (action === 'openPipelineManager') {
             onOpenPipelineManagerModal();
+        } else if (action === 'openCompanySettings') {
+            onOpenCompanySettingsModal();
         } else if (action === 'navigateTo' && page) {
             setActivePage(page);
         }

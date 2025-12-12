@@ -1,5 +1,3 @@
-
-
 import type { LucideIcon } from 'lucide-react';
 
 export interface Kpi {
@@ -32,13 +30,6 @@ export interface EquipmentCategory {
     id: string;
     name: string;
     tenant_id?: string;
-}
-
-export interface PipelineStage {
-    id: string;
-    name: string;
-    color: string;
-    isCore: boolean;
 }
 
 
@@ -75,7 +66,7 @@ export interface Equipment {
     };
 }
 
-export type RentalStatus = string;
+export type RentalStatus = 'Proposta' | 'Aprovado' | 'Recusado' | 'Reservado' | 'Em Rota' | 'Ativo' | 'Concluído' | 'Pendente de Pagamento';
 
 export interface StatusHistory {
     status: RentalStatus;
@@ -86,6 +77,8 @@ export interface EquipmentOrderItem {
     equipmentId: string;
     equipmentName: string;
     value: number;
+    startDate?: string;
+    endDate?: string;
 }
 
 export type PaymentStatus = 'Pendente' | 'Sinal Pago' | 'Pago' | 'Vencido';
@@ -200,4 +193,21 @@ export interface ConfirmationModalProps {
   onConfirm: () => void;
   title: string;
   message: string;
+}
+
+export interface CompanySettings {
+    name: string;
+    document: string;
+    email: string;
+    phone: string;
+    website?: string;
+    address: {
+        street: string;
+        number: string;
+        complement?: string;
+        neighborhood: string;
+        city: string;
+        state: string;
+        cep: string;
+    };
 }

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Plus, Edit2, Trash2, Printer, ArrowRight, Share2, Loader2 } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Printer, ArrowRight, Share2, Loader2, HardHat } from 'lucide-react';
 import { RentalOrder, Customer, RentalStatus } from '../types';
 import { supabase } from '../supabaseClient';
 import jsPDF from 'jspdf';
@@ -39,107 +39,101 @@ const Orcamentos: React.FC<OrcamentosProps> = ({
         });
     }, [quotes, searchTerm, statusFilter]);
 
+    const formatDate = (dateString: string) => new Date(dateString + 'T00:00:00').toLocaleDateString('pt-BR');
+
     // Função para gerar PDF visualmente idêntico à impressão
-    const generatePdfBlob = async (quote: RentalOrder): Promise<Blob> => {
+    const generatePdfBlob = async (quote: RentalOrder, client?: Customer): Promise<Blob> => {
         const totalValue = quote.value + (quote.freightCost || 0) + (quote.accessoriesCost || 0) - (quote.discount || 0);
         
-        // Cria um elemento HTML temporário para renderizar o PDF
         const element = document.createElement('div');
         element.style.position = 'absolute';
         element.style.left = '-9999px';
-        element.style.width = '800px'; // Largura fixa para A4
-        element.style.padding = '40px';
+        element.style.width = '8.27in'; // A4 width
+        element.style.height = '11.69in'; // A4 height
         element.style.backgroundColor = 'white';
-        element.style.fontFamily = 'Inter, sans-serif';
-        element.className = 'text-gray-900';
-
-        element.innerHTML = `
-            <div class="flex justify-between items-start border-b-2 border-[#0A4C64] pb-6 mb-6">
-                <div class="flex items-center gap-3">
-                    <!-- Ícone HardHat SVG simplificado -->
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#0A4C64" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v2z"></path>
-                        <path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"></path>
-                        <path d="M4 15v-3a6 6 0 0 1 6-6h0"></path>
-                        <path d="M14 6h0a6 6 0 0 1 6 6v3"></path>
-                    </svg>
+        
+        const content = `
+        <div style="padding: 48px; font-family: 'Inter', sans-serif; color: #374151;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; margin-bottom: 32px;">
+                <div style="display: flex; align-items: center; gap: 16px;">
                     <div>
-                        <h1 class="text-2xl font-bold text-gray-900">ObraFácil</h1>
-                        <p class="text-sm text-gray-500">Locação de Equipamentos</p>
+                         <h1 style="font-size: 24px; font-weight: bold; color: #111827;">ObraFácil</h1>
+                         <p style="font-size: 12px; color: #6b7280;">Rua da Construção, 123, Bairro Industrial</p>
+                         <p style="font-size: 12px; color: #6b7280;">CEP 12345-678, São Paulo, SP</p>
+                         <p style="font-size: 12px; color: #6b7280;">contato@obrafacil.com | (11) 98765-4321</p>
                     </div>
                 </div>
-                <div class="text-right">
-                    <h2 class="text-xl font-bold text-gray-800">PROPOSTA COMERCIAL</h2>
-                    <p class="text-gray-600">#${quote.id}</p>
-                    <p class="text-sm text-gray-500">Data: ${new Date(quote.createdDate).toLocaleDateString('pt-BR')}</p>
+                <div style="text-align: right;">
+                    <h2 style="font-size: 28px; font-weight: bold; color: #4b5563; letter-spacing: 0.05em;">ORÇAMENTO</h2>
+                    <p style="font-weight: 600; color: #0A4C64;">${quote.id}</p>
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-8 mb-8" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
-                <div>
-                    <h3 class="text-sm font-bold text-gray-500 uppercase mb-2">Cliente</h3>
-                    <p class="font-semibold text-lg text-gray-900">${quote.client}</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 40px; font-size: 14px;">
+                <div style="background-color: #f9fafb; padding: 16px; border-radius: 8px;">
+                    <p style="font-size: 12px; font-weight: bold; color: #6b7280; margin-bottom: 4px;">PARA:</p>
+                    <p style="font-weight: bold; font-size: 16px;">${client?.name || quote.client}</p>
+                    ${client?.document ? `<p style="color: #4b5563;">CNPJ: ${client.document}</p>` : ''}
+                    ${client?.street ? `<p style="color: #4b5563;">${client.street}, ${client.number || 'S/N'}</p>` : ''}
                 </div>
-                <div class="text-right">
-                    <h3 class="text-sm font-bold text-gray-500 uppercase mb-2">Detalhes</h3>
-                    <p class="text-gray-700"><span class="font-semibold">Período:</span> ${new Date(quote.startDate).toLocaleDateString('pt-BR')} a ${new Date(quote.endDate).toLocaleDateString('pt-BR')}</p>
-                    <p class="text-gray-700"><span class="font-semibold">Validade:</span> ${new Date(quote.validUntil).toLocaleDateString('pt-BR')}</p>
+                <div style="text-align: right; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div style="display: flex; justify-content: flex-end; gap: 8px;"><p style="font-weight: bold; color: #4b5563;">Data de Emissão:</p><p>${formatDate(quote.createdDate)}</p></div>
+                    <div style="display: flex; justify-content: flex-end; gap: 8px;"><p style="font-weight: bold; color: #4b5563;">Válido até:</p><p>${formatDate(quote.validUntil)}</p></div>
+                    <div style="display: flex; justify-content: flex-end; gap: 8px;"><p style="font-weight: bold; color: #4b5563;">Período de Locação:</p><p>${formatDate(quote.startDate)} a ${formatDate(quote.endDate)}</p></div>
                 </div>
             </div>
 
-            <div class="mb-8">
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr class="bg-gray-100 text-gray-600 text-sm uppercase" style="background-color: #f3f4f6;">
-                            <th style="padding: 12px; text-align: left;">Item / Equipamento</th>
-                            <th style="padding: 12px; text-align: right;">Valor</th>
+            <table style="width: 100%; text-align: left; margin-bottom: 32px; border-collapse: collapse;">
+                <thead style="background-color: #f3f4f6;">
+                    <tr>
+                        <th style="padding: 12px; font-size: 14px; font-weight: bold; color: #4b5563; width: 64px;">ITEM</th>
+                        <th style="padding: 12px; font-size: 14px; font-weight: bold; color: #4b5563;">DESCRIÇÃO</th>
+                        <th style="padding: 12px; font-size: 14px; font-weight: bold; color: #4b5563; width: 192px;">PERÍODO</th>
+                        <th style="padding: 12px; font-size: 14px; font-weight: bold; color: #4b5563; width: 128px; text-align: right;">VALOR</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${quote.equipmentItems.map((item, idx) => `
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px; color: #4b5563;">${(idx + 1).toString().padStart(3, '0')}</td>
+                            <td style="padding: 12px; font-weight: 600;">${item.equipmentName}</td>
+                            <td style="padding: 12px; color: #4b5563;">${formatDate(quote.startDate)} a ${formatDate(quote.endDate)}</td>
+                            <td style="padding: 12px; text-align: right; font-weight: 600;">R$ ${item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        ${quote.equipmentItems.map(item => `
-                            <tr style="border-bottom: 1px solid #e5e7eb;">
-                                <td style="padding: 12px; font-weight: 500;">${item.equipmentName}</td>
-                                <td style="padding: 12px; text-align: right;">R$ ${item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
+                    `).join('')}
+                </tbody>
+            </table>
 
-            <div style="display: flex; justify-content: flex-end; margin-bottom: 3rem;">
-                <div style="width: 250px;">
-                    <div style="display: flex; justify-content: space-between; color: #4b5563; margin-bottom: 0.5rem;">
-                        <span>Subtotal</span>
-                        <span>R$ ${quote.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            <div style="display: flex; justify-content: flex-end;">
+                <div style="width: 320px; font-size: 14px; line-height: 2;">
+                    <div style="display: flex; justify-content: space-between; color: #4b5563;">
+                        <p>Subtotal (Equipamentos):</p>
+                        <p>R$ ${quote.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     </div>
-                    ${quote.freightCost ? `
-                    <div style="display: flex; justify-content: space-between; color: #4b5563; margin-bottom: 0.5rem;">
-                        <span>Frete</span>
-                        <span>R$ ${quote.freightCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    ${quote.freightCost > 0 ? `
+                    <div style="display: flex; justify-content: space-between; color: #4b5563;">
+                        <p>Frete:</p>
+                        <p>R$ ${quote.freightCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     </div>` : ''}
-                    ${quote.accessoriesCost ? `
-                    <div style="display: flex; justify-content: space-between; color: #4b5563; margin-bottom: 0.5rem;">
-                        <span>Acessórios</span>
-                        <span>R$ ${quote.accessoriesCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    ${quote.accessoriesCost > 0 ? `
+                    <div style="display: flex; justify-content: space-between; color: #4b5563;">
+                        <p>Acessórios:</p>
+                        <p>R$ ${quote.accessoriesCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     </div>` : ''}
-                    ${quote.discount ? `
-                    <div style="display: flex; justify-content: space-between; color: #ef4444; margin-bottom: 0.5rem;">
-                        <span>Desconto</span>
-                        <span>- R$ ${quote.discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                     ${quote.discount > 0 ? `
+                    <div style="display: flex; justify-content: space-between; color: #dc2626; font-weight: 600;">
+                        <p>Desconto:</p>
+                        <p>- R$ ${quote.discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     </div>` : ''}
-                    <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.25rem; color: #0A4C64; border-top: 1px solid #e5e7eb; padding-top: 0.5rem; margin-top: 0.5rem;">
-                        <span>Total</span>
+                    <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; color: #111827; border-top: 2px solid #e5e7eb; padding-top: 8px; margin-top: 8px;">
+                        <span>Total:</span>
                         <span>R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                     </div>
                 </div>
             </div>
-
-            <footer class="text-center text-xs text-gray-500 pt-6 border-t border-gray-200" style="text-align: center; font-size: 0.75rem; color: #6b7280; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
-                <p class="font-semibold mb-1" style="font-weight: 600; margin-bottom: 0.25rem;">Termos e Condições</p>
-                <p>Esta proposta é válida por 15 dias a partir da data de emissão. Pagamento conforme combinado.</p>
-                <p class="mt-4" style="margin-top: 1rem;">Agradecemos a sua preferência!</p>
-            </footer>
+        </div>
         `;
+        element.innerHTML = content;
 
         document.body.appendChild(element);
 
@@ -159,10 +153,11 @@ const Orcamentos: React.FC<OrcamentosProps> = ({
 
     const handleWhatsAppShare = async (quote: RentalOrder) => {
         setSharingQuoteId(quote.id);
+        const client = clients.find(c => c.name === quote.client);
         
         try {
             // 1. Gerar PDF
-            const pdfBlob = await generatePdfBlob(quote);
+            const pdfBlob = await generatePdfBlob(quote, client);
             const file = new File([pdfBlob], `orcamento_${quote.id}.pdf`, { type: 'application/pdf' });
 
             // 2. Upload para Supabase Storage

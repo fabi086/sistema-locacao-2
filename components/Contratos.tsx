@@ -1,15 +1,15 @@
 
 
 import React, { useState, useMemo } from 'react';
-import { Search, Trash2, Edit2, FileText, ScrollText } from 'lucide-react';
+import { Search, Trash2, Edit2, FileText, Receipt } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { Contract, ContractStatus, RentalOrder } from '../types';
+import { Contract, ContractStatus, RentalOrder, Customer } from '../types';
 
 const statusColors: Record<ContractStatus, string> = {
     'Ativo': 'bg-accent-success/10 text-accent-success',
     'Pendente': 'bg-yellow-500/10 text-yellow-600',
-    'Vencido': 'bg-accent-danger/10 text-accent-danger',
-    'Concluído': 'bg-gray-500/10 text-gray-600',
+    'Vencido': 'bg-gray-500/10 text-gray-600',
+    'Concluído': 'bg-blue-500/10 text-blue-600',
 };
 
 const StatusBadge: React.FC<{ status: ContractStatus }> = ({ status }) => (
@@ -21,13 +21,22 @@ const StatusBadge: React.FC<{ status: ContractStatus }> = ({ status }) => (
 interface ContratosProps {
     contracts: Contract[];
     rentalOrders: RentalOrder[];
+    clients: Customer[];
     onDelete: (contract: Contract) => void;
     onEdit: (contract: Contract) => void;
-    onOpenReceipt: (data: { contract: Contract, order: RentalOrder }) => void;
-    onOpenContract: (data: { contract: Contract, order: RentalOrder }) => void;
+    onOpenContractPrintModal: (contract: Contract) => void;
+    onOpenReceiptPrintModal: (order: RentalOrder) => void;
 }
 
-const Contratos: React.FC<ContratosProps> = ({ contracts = [], rentalOrders, onDelete, onEdit, onOpenReceipt, onOpenContract }) => {
+const Contratos: React.FC<ContratosProps> = ({ 
+    contracts = [], 
+    rentalOrders,
+    clients,
+    onDelete, 
+    onEdit,
+    onOpenContractPrintModal,
+    onOpenReceiptPrintModal
+}) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<ContractStatus | 'Todos'>('Todos');
 
@@ -42,6 +51,11 @@ const Contratos: React.FC<ContratosProps> = ({ contracts = [], rentalOrders, onD
             return searchMatch && statusMatch;
         });
     }, [searchTerm, statusFilter, contracts]);
+    
+    const getOrderForContract = (contractId: string): RentalOrder | undefined => {
+        const orderId = contractId.replace('CON-', '');
+        return rentalOrders.find(o => o.id === orderId);
+    };
 
     const containerVariants: any = {
         hidden: { opacity: 0 },
@@ -53,10 +67,7 @@ const Contratos: React.FC<ContratosProps> = ({ contracts = [], rentalOrders, onD
         visible: { y: 0, opacity: 1, transition: { duration: 0.3, ease: 'easeOut' } }
     };
     
-    const getOrderFromContract = (contractId: string) => {
-        const orderId = contractId.replace('CON-', '');
-        return rentalOrders.find(o => o.id === orderId);
-    };
+    const allStatuses: ContractStatus[] = ['Ativo', 'Vencido', 'Concluído'];
 
     return (
         <div className="p-4 sm:p-6 md:p-8">
@@ -84,10 +95,7 @@ const Contratos: React.FC<ContratosProps> = ({ contracts = [], rentalOrders, onD
                     onChange={(e) => setStatusFilter(e.target.value as ContractStatus | 'Todos')}
                  >
                     <option value="Todos">Todos Status</option>
-                    <option value="Pendente">Pendente</option>
-                    <option value="Ativo">Ativo</option>
-                    <option value="Vencido">Vencido</option>
-                    <option value="Concluído">Concluído</option>
+                    {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
             </div>
             
@@ -106,7 +114,6 @@ const Contratos: React.FC<ContratosProps> = ({ contracts = [], rentalOrders, onD
                             <th className="p-4">ID Contrato</th>
                             <th className="p-4">Cliente</th>
                             <th className="p-4">Vigência</th>
-                            <th className="p-4">Vencimento</th>
                             <th className="p-4">Valor Total</th>
                             <th className="p-4">Status</th>
                             <th className="p-4 text-center">Ações</th>
@@ -114,7 +121,7 @@ const Contratos: React.FC<ContratosProps> = ({ contracts = [], rentalOrders, onD
                     </thead>
                     <motion.tbody {...({ variants: containerVariants } as any)}>
                         {filteredContracts.map(contract => {
-                            const order = getOrderFromContract(contract.id);
+                            const order = getOrderForContract(contract.id);
                             const isPaid = order?.paymentStatus === 'Pago';
                             return (
                                 <motion.tr 
@@ -127,22 +134,19 @@ const Contratos: React.FC<ContratosProps> = ({ contracts = [], rentalOrders, onD
                                     <td className="p-4 text-neutral-text-secondary">
                                         {new Date(contract.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(contract.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}
                                     </td>
-                                    <td className="p-4 text-neutral-text-secondary">
-                                        {contract.dueDate ? new Date(contract.dueDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}
-                                    </td>
-                                    <td className="p-4 text-neutral-text-secondary font-semibold">R$ {contract.value.toLocaleString('pt-BR')}</td>
+                                    <td className="p-4 text-neutral-text-secondary font-semibold">R$ {contract.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                                     <td className="p-4"><StatusBadge status={contract.status} /></td>
                                     <td className="p-4 text-center">
                                         <div className="flex items-center justify-center gap-2">
-                                            <button onClick={() => order && onOpenContract({contract, order})} disabled={!order} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors disabled:opacity-50" title="Gerar Contrato"><FileText size={16} /></button>
-                                            <button onClick={() => order && onOpenReceipt({contract, order})} disabled={!isPaid || !order} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors disabled:opacity-50" title="Gerar Recibo"><ScrollText size={16} /></button>
-                                            <button onClick={() => onEdit(contract)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors" aria-label={`Editar contrato ${contract.id}`}><Edit2 size={16} /></button>
-                                            <button onClick={() => onDelete(contract)} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors" aria-label={`Excluir contrato ${contract.id}`}><Trash2 size={16} /></button>
+                                            <button onClick={() => onOpenContractPrintModal(contract)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors" title="Gerar Contrato"><FileText size={16} /></button>
+                                            <button onClick={() => isPaid && order && onOpenReceiptPrintModal(order)} disabled={!isPaid} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title={isPaid ? "Gerar Recibo" : "Pagamento pendente"}><Receipt size={16} /></button>
+                                            <button onClick={() => onEdit(contract)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors" title="Editar"><Edit2 size={16} /></button>
+                                            <button onClick={() => onDelete(contract)} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors" title="Excluir"><Trash2 size={16} /></button>
                                         </div>
                                     </td>
                                 </motion.tr>
-                            )
-                        })}
+                            )}
+                        )}
                     </motion.tbody>
                 </table>
             </motion.div>
@@ -157,8 +161,8 @@ const Contratos: React.FC<ContratosProps> = ({ contracts = [], rentalOrders, onD
                 } as any)}
             >
                 {filteredContracts.map(contract => {
-                    const order = getOrderFromContract(contract.id);
-                    const isPaid = order?.paymentStatus === 'Pago';
+                     const order = getOrderForContract(contract.id);
+                     const isPaid = order?.paymentStatus === 'Pago';
                     return (
                         <motion.div key={contract.id} className="bg-neutral-card rounded-lg shadow-sm p-4 border border-gray-200" {...({ variants: itemVariants } as any)}>
                             <div className="flex justify-between items-start">
@@ -170,12 +174,11 @@ const Contratos: React.FC<ContratosProps> = ({ contracts = [], rentalOrders, onD
                             </div>
                             <div className="my-3 text-sm text-neutral-text-secondary space-y-1 border-t border-b py-2">
                                 <p><span className="font-semibold">Vigência:</span> {new Date(contract.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(contract.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
-                                <p><span className="font-semibold">Vencimento:</span> {contract.dueDate ? new Date(contract.dueDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}</p>
-                                <p><span className="font-semibold">Valor:</span> R$ {contract.value.toLocaleString('pt-BR')}</p>
+                                <p><span className="font-semibold">Valor:</span> R$ {contract.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                             </div>
                             <div className="flex items-center justify-end gap-2">
-                                <button onClick={() => order && onOpenContract({contract, order})} disabled={!order} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors disabled:opacity-50" title="Gerar Contrato"><FileText size={18} /></button>
-                                <button onClick={() => order && onOpenReceipt({contract, order})} disabled={!isPaid || !order} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors disabled:opacity-50" title="Gerar Recibo"><ScrollText size={18} /></button>
+                                <button onClick={() => onOpenContractPrintModal(contract)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors" title="Gerar Contrato"><FileText size={18} /></button>
+                                <button onClick={() => isPaid && order && onOpenReceiptPrintModal(order)} disabled={!isPaid} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title={isPaid ? "Gerar Recibo" : "Pagamento pendente"}><Receipt size={18} /></button>
                                 <button onClick={() => onEdit(contract)} className="p-2 text-neutral-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors"><Edit2 size={18} /></button>
                                 <button onClick={() => onDelete(contract)} className="p-2 text-neutral-text-secondary hover:text-accent-danger hover:bg-accent-danger/10 rounded-full transition-colors"><Trash2 size={18} /></button>
                             </div>
